@@ -8,6 +8,13 @@
 # keybinding hook in bindings.zsh. compinit must run before plugins (fzf-tab).
 # ──────────────────────────────────────────────────────────────────────────────
 
+# ── XDG fallbacks ─────────────────────────────────────────────────────────────
+# .zshenv normally exports these before we get here. Guard anyway so the mkdir
+# lines below never collapse to /zsh if .zshenv hasn't run (e.g. pre-migration,
+# or .zshrc sourced standalone).
+: "${XDG_STATE_HOME:=$HOME/.local/state}"
+: "${XDG_CACHE_HOME:=$HOME/.cache}"
+
 # ── history ───────────────────────────────────────────────────────────────────
 HISTFILE="$XDG_STATE_HOME/zsh/history"
 mkdir -p "${HISTFILE:h}"
