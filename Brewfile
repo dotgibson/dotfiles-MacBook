@@ -70,4 +70,3 @@ cask "1password-cli"
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 cask "font-caskaydia-cove-nerd-font"
 cask "font-jetbrains-mono-nerd-font"
-
