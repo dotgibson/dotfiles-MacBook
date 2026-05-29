@@ -28,7 +28,7 @@ esac; done
 c_b=$'\e[34m'; c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
 say(){ printf '%s==>%s %s\n' "$c_b" "$c_0" "$*"; }
 ok(){  printf '  %s✓%s %s\n' "$c_g" "$c_0" "$*"; }
-info(){printf '  %s•%s %s\n' "$c_y" "$c_0" "$*"; }
+info(){ printf '  %s•%s %s\n' "$c_y" "$c_0" "$*"; }
 err(){ printf '  %s✗%s %s\n' "$c_r" "$c_0" "$*" >&2; }
 
 [[ "$(uname -s)" == "Darwin" ]] || { err "this bootstrap is macOS-only"; exit 1; }
