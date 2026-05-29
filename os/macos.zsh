@@ -1,0 +1,36 @@
+# dotfiles-MacBook/os/macos.zsh  →  ~/.config/zsh/os.zsh
+# ──────────────────────────────────────────────────────────────────────────────
+# macOS-only INTERACTIVE shell extras. Sourced near the end of .zshrc (after the
+# Core modules), so it can override Core. PATH/env that must exist in every shell
+# lives in .zprofile/.zshenv, not here. Nothing offensive here — that's Kali.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Native clipboard already works: Core's `clip`/`clip-paste` detect Darwin and
+# shell out to pbcopy/pbpaste, so no aliases are needed here.
+
+# ── tool completions (Homebrew-installed CLIs that ship zsh completions) ─────
+# gh and direnv hook the shell directly; uv/ty emit completions on demand.
+command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
+command -v gh     >/dev/null 2>&1 && eval "$(gh completion -s zsh 2>/dev/null)"
+command -v uv     >/dev/null 2>&1 && eval "$(uv generate-shell-completion zsh 2>/dev/null)"
+command -v ty     >/dev/null 2>&1 && eval "$(ty generate-shell-completion zsh 2>/dev/null)"
+
+# ── macOS conveniences ────────────────────────────────────────────────────────
+alias localip='ipconfig getifaddr en0'                 # LAN IP on the primary interface
+alias flushdns='sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder'
+alias showfiles='defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder'
+alias hidefiles='defaults write com.apple.finder AppleShowAllFiles -bool false && killall Finder'
+alias o='open'                                          # `o .` to open in Finder
+
+# ── dotfiles maintenance: jump to this repo ──────────────────────────────────
+alias dotsync='cd "$HOME/dotfiles-MacBook"'
+
+# ── 1Password CLI sign-in convenience (op.zsh in Core has the helpers) ───────
+command -v op >/dev/null 2>&1 && alias opsignin='eval "$(op signin)"'
+
+# ── auto-start/attach tmux for interactive terminals ─────────────────────────
+# Skip inside an existing tmux, VS Code's integrated terminal, and non-TTYs.
+if command -v tmux >/dev/null 2>&1 \
+   && [[ -z "$TMUX" && -t 1 && "$TERM_PROGRAM" != "vscode" ]]; then
+  tmux attach -t main 2>/dev/null || tmux new-session -s main
+fi

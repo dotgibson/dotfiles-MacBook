@@ -1,0 +1,18 @@
+# dotfiles-MacBook/os/macos.gitconfig  →  ~/.config/git/os.gitconfig
+# ──────────────────────────────────────────────────────────────────────────────
+# macOS-specific git layer. Core's gitconfig pulls this in via:
+#   [include] path = ~/.config/git/os.gitconfig
+# Identity (name/email/signingkey) is separate — it's in ~/.config/git/local.gitconfig.
+# ──────────────────────────────────────────────────────────────────────────────
+
+[credential]
+	helper = osxkeychain          # the keychain helper bundled with macOS git
+
+[core]
+	excludesfile = ~/.config/git/ignore   # global gitignore (.DS_Store, etc.)
+
+[gpg]
+	# Apple Silicon Homebrew path; Intel is /usr/local/bin/gpg. Only matters if
+	# you sign commits (set a signingkey + commit.gpgsign in local.gitconfig).
+	program = /opt/homebrew/bin/gpg
+

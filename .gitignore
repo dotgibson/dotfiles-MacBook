@@ -1,0 +1,20 @@
+# dotfiles-MacBook/.gitignore — config + scripts only; never machine state/secrets.
+
+# machine-specific shell overrides (never synced; sourced last by .zshrc)
+zsh/local.zsh
+
+# Core is a vendored git-subtree under core/ and IS tracked. But the nvim plugin
+# lockfile is environment-specific churn — let each machine resolve it itself.
+core/nvim/lazy-lock.json
+
+# noise / secrets
+*.log
+*.bak
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# private SSH material — track ssh/config only, never keys
+ssh/*
+!ssh/config

@@ -1,0 +1,37 @@
+# dotfiles-MacBook/zsh/zshrc  →  ~/.config/zsh/.zshrc
+# ──────────────────────────────────────────────────────────────────────────────
+# Interactive shell. Sets history + completion, then sources the Core modules
+# (and the macOS os layer + any local overrides) in the ONE correct order:
+#   tools → aliases → functions → fzf → bindings → plugins → op → os → local
+# Order is load-bearing: tools inits atuin (registers its widget) and fzf defines
+# its zle widgets BEFORE plugins.zsh loads zsh-vi-mode, whose init fires the
+# keybinding hook in bindings.zsh. compinit must run before plugins (fzf-tab).
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── history ───────────────────────────────────────────────────────────────────
+HISTFILE="$XDG_STATE_HOME/zsh/history"
+mkdir -p "${HISTFILE:h}"
+HISTSIZE=100000
+SAVEHIST=100000
+setopt EXTENDED_HISTORY INC_APPEND_HISTORY SHARE_HISTORY
+setopt HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS HIST_VERIFY
+
+# ── navigation / misc options ─────────────────────────────────────────────────
+setopt AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS PUSHD_SILENT
+setopt INTERACTIVE_COMMENTS NO_BEEP
+
+# ── completion (must precede plugins.zsh / fzf-tab) ──────────────────────────
+autoload -Uz compinit
+_zcompdump="$XDG_CACHE_HOME/zsh/zcompdump"
+mkdir -p "${_zcompdump:h}"
+compinit -d "$_zcompdump"
+zstyle ':completion:*' menu no
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+
+# ── Core modules + macOS layer + local overrides, in order ───────────────────
+ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
+for _m in tools aliases functions fzf bindings plugins op os local; do
+  [[ -r "$ZSH_CFG/$_m.zsh" ]] && source "$ZSH_CFG/$_m.zsh"
+done
+unset _m _zcompdump
+
