@@ -47,6 +47,7 @@ brew "yazi"
 # ── Editor & multiplexer ───────────────────────────────────────────────────────
 brew "neovim"
 brew "tmux"
+brew "tree-sitter-cli"
 
 # ── Git ────────────────────────────────────────────────────────────────────────
 brew "git"
