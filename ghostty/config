@@ -1,0 +1,30 @@
+# Theme
+theme = TokyoNight
+background-opacity = 0.9
+background-blur = true
+macos-window-buttons = hidden
+macos-titlebar-style = hidden
+
+# Font
+font-family = 'CaskaydiaCove Nerd Font'
+font-size = 16
+font-thicken = true
+font-feature = "+ligatures"
+
+# Cursor
+cursor-style = block
+cursor-style-blink = true
+mouse-hide-while-typing = true
+
+# Window
+window-save-state = always
+confirm-close-surface = false
+window-padding-x = 10
+window-padding-y = 10
+
+# Quick terminal + key passthrough
+keybind = alt+space=toggle_quick_terminal
+quick-terminal-position = top
+quick-terminal-animation-duration = 0.2
+keybind = ctrl+enter=text:\x1b[13;5u
+keybind = shift+enter=text:\x1b[13;2u
