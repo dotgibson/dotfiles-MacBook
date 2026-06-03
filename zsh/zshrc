@@ -1,44 +1,43 @@
 # dotfiles-MacBook/zsh/zshrc  →  ~/.config/zsh/.zshrc
 # ──────────────────────────────────────────────────────────────────────────────
-# Interactive shell. Sets history + completion, then sources the Core modules
-# (and the macOS os layer + any local overrides) in the ONE correct order:
-#   tools → aliases → functions → fzf → bindings → plugins → op → os → local
+# Interactive shell. Sources the Core modules (+ the macOS os layer + any local
+# overrides) in the ONE correct order:
+#   tools → options → history → aliases → functions → fzf → bindings → plugins
+#         → op → maint → update → os → local
+#
+# WHAT CHANGED (2026 refresh integration):
+#   • options.zsh + history.zsh are NEW Core modules that now own setopts, the
+#     completion system (compinit), and history config. They replace the inline
+#     blocks that used to live in THIS file — that duplication was exactly the
+#     drift the Core layer exists to kill, so the inline copies are gone.
+#   • update.zsh (the `up` command + the once/day "updates available" nudge) and
+#     maint.zsh (`maint-install` etc.) are sourced too — previously they were
+#     symlinked into ~/.config/zsh but never loaded, so `up`/`maint-install`
+#     didn't exist.
+#
 # Order is load-bearing: tools inits atuin (registers its widget) and fzf defines
 # its zle widgets BEFORE plugins.zsh loads zsh-vi-mode, whose init fires the
-# keybinding hook in bindings.zsh. compinit must run before plugins (fzf-tab).
+# keybinding hook in bindings.zsh. options.zsh runs compinit BEFORE plugins.zsh
+# (fzf-tab + carapace need it). update.zsh sits late so its nudge prints just
+# above the prompt (incl. inside each new tmux pane).
+#
+# NOTE on history location: history.zsh sets HISTFILE to $ZDOTDIR/.zsh_history
+# (was $XDG_STATE_HOME/zsh/history here). atuin holds your real searchable
+# history regardless; if you want the old flat-file path, set HISTFILE in
+# ~/.config/zsh/local.zsh (sourced last, so it wins).
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── XDG fallbacks ─────────────────────────────────────────────────────────────
-# .zshenv normally exports these before we get here. Guard anyway so the mkdir
-# lines below never collapse to /zsh if .zshenv hasn't run (e.g. pre-migration,
-# or .zshrc sourced standalone).
+# .zshenv normally exports these before we get here. Guard anyway so nothing
+# downstream collapses to a bare path if .zshenv hasn't run (e.g. .zshrc sourced
+# standalone).
 : "${XDG_STATE_HOME:=$HOME/.local/state}"
 : "${XDG_CACHE_HOME:=$HOME/.cache}"
 
-# ── history ───────────────────────────────────────────────────────────────────
-HISTFILE="$XDG_STATE_HOME/zsh/history"
-mkdir -p "${HISTFILE:h}"
-HISTSIZE=100000
-SAVEHIST=100000
-setopt EXTENDED_HISTORY INC_APPEND_HISTORY SHARE_HISTORY
-setopt HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS HIST_VERIFY
-
-# ── navigation / misc options ─────────────────────────────────────────────────
-setopt AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS PUSHD_SILENT
-setopt INTERACTIVE_COMMENTS NO_BEEP
-
-# ── completion (must precede plugins.zsh / fzf-tab) ──────────────────────────
-autoload -Uz compinit
-_zcompdump="$XDG_CACHE_HOME/zsh/zcompdump"
-mkdir -p "${_zcompdump:h}"
-compinit -d "$_zcompdump"
-zstyle ':completion:*' menu no
-zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
-
 # ── Core modules + macOS layer + local overrides, in order ───────────────────
+# (history + completion/compinit + setopts are owned by history.zsh/options.zsh.)
 ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
-for _m in tools aliases functions fzf bindings plugins op os local; do
+for _m in tools options history aliases functions fzf bindings plugins op maint update os local; do
   [[ -r "$ZSH_CFG/$_m.zsh" ]] && source "$ZSH_CFG/$_m.zsh"
 done
-unset _m _zcompdump
-
+unset _m
