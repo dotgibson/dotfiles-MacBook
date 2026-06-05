@@ -19,6 +19,7 @@ brew "starship"
 brew "zoxide"
 brew "atuin"
 brew "direnv"
+brew "carapace"      # multi-shell completion engine (feeds fzf-tab in zsh; tools.zsh inits it)
 brew "stow"
 
 # ── Runtime / tooling managers ─────────────────────────────────────────────────
@@ -33,13 +34,19 @@ brew "ripgrep"       # grep
 brew "fd"            # find
 brew "delta"         # git diff
 brew "dust"          # du
-brew "bottom"        # top
+brew "bottom"        # top  (binary: btm — kept; no alias points here)
+brew "btop"          # top  (core aliases top/htop → btop expect this binary)
 brew "procs"         # ps
 brew "sd"            # sed
 brew "jq"            # JSON
 brew "yq"            # YAML
+brew "gron"          # greppable JSON (zsh helper expects it)
 brew "xsv"           # fast CSV slicing
 brew "gnu-sed"       # GNU sed (`gsed`) — nvim-spectre + scripts expect it
+
+# ── Network — HTTP & DNS ───────────────────────────────────────────────────────
+brew "xh"            # HTTP client  (zsh aliases http/https → xh)
+brew "doggo"         # DNS client   (zsh alias dns → doggo)
 
 # ── File management ────────────────────────────────────────────────────────────
 brew "yazi"
@@ -47,6 +54,7 @@ brew "yazi"
 # ── Editor & multiplexer ───────────────────────────────────────────────────────
 brew "neovim"
 brew "tmux"
+brew "sesh"          # tmux session manager (prefix+f / Ctrl+G picker; tmux + fzf widgets use it)
 brew "tree-sitter-cli"
 
 # ── Git ────────────────────────────────────────────────────────────────────────
