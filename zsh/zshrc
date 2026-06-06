@@ -37,7 +37,7 @@
 # ── Core modules + macOS layer + local overrides, in order ───────────────────
 # (history + completion/compinit + setopts are owned by history.zsh/options.zsh.)
 ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
-for _m in tools options history aliases functions fzf bindings plugins op maint update os local; do
+for _m in tools options history aliases git functions fzf bindings plugins op maint update os local; do
   [[ -r "$ZSH_CFG/$_m.zsh" ]] && source "$ZSH_CFG/$_m.zsh"
 done
 unset _m
