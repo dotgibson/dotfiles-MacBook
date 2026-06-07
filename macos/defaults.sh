@@ -120,8 +120,9 @@ defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
 defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
 # Snappier window resizing
 defaults write NSGlobalDomain NSWindowResizeTime -float 0.001
-# Disable the "Are you sure you want to open this application?" for every app
-# (kept — this is the download-warning dialog, NOT Gatekeeper quarantine).
+# Keep the "Are you sure..." download-warning dialog enabled (LSQuarantine = true).
+# This is NOT Gatekeeper quarantine — it's the per-app open confirmation.
+# To silence it system-wide: -bool false  (reduces protection; prefer xattr -d per-file).
 defaults write com.apple.LaunchServices LSQuarantine -bool true
 # TextEdit: plain text, UTF-8
 defaults write com.apple.TextEdit RichText -int 0
@@ -162,7 +163,7 @@ ok "password required immediately on sleep/screensaver"
 # ══════════════════════════════════════════════════════════════════════════════
 header "Applying"
 for app in "Finder" "Dock" "SystemUIServer"; do
-	killall "$app" >/dev/null 2>&1 || true
+  killall "$app" >/dev/null 2>&1 || true
 done
 ok "Finder, Dock, SystemUIServer restarted"
 

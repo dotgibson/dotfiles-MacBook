@@ -12,7 +12,6 @@
 	excludesfile = ~/.config/git/ignore   # global gitignore (.DS_Store, etc.)
 
 [gpg]
-	# Apple Silicon Homebrew path; Intel is /usr/local/bin/gpg. Only matters if
-	# you sign commits (set a signingkey + commit.gpgsign in local.gitconfig).
-	program = /opt/homebrew/bin/gpg
-
+    # Relies on brew shellenv having put $(brew --prefix)/bin on PATH.
+    # If signing fails: verify `which gpg` points to the Homebrew install.
+    program = gpg

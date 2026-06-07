@@ -1,7 +1,6 @@
 # Theme
 theme = TokyoNight
 background-opacity = 0.90
-background-blur = false
 macos-window-buttons = hidden
 macos-titlebar-style = hidden
 
