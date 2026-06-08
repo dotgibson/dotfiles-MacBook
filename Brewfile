@@ -36,6 +36,7 @@ brew "dust"          # du
 brew "bottom"        # top  (binary: btm — kept; no alias points here)
 brew "btop"          # top  (core aliases top/htop → btop expect this binary)
 brew "procs"         # ps
+brew "viddy"         # watch (core aliases watch → viddy; tools.zsh probes HAVE_VIDDY)
 brew "sd"            # sed
 brew "jq"            # JSON
 brew "yq"            # YAML
@@ -46,6 +47,7 @@ brew "gnu-sed"       # GNU sed (`gsed`) — nvim-spectre + scripts expect it
 # ── Network — HTTP & DNS ───────────────────────────────────────────────────────
 brew "xh"            # HTTP client  (zsh aliases http/https → xh)
 brew "doggo"         # DNS client   (zsh alias dns → doggo)
+brew "gping"         # ping w/ graph (core alias ping → gping; tools.zsh probes HAVE_GPING)
 
 # ── File management ────────────────────────────────────────────────────────────
 brew "yazi"
@@ -69,6 +71,7 @@ brew "pinentry-mac"  # GUI pinentry for gpg on macOS
 brew "fzf"
 brew "gum"
 brew "glow"          # markdown rendering
+brew "tealdeer"      # fast tldr client (core alias help → tldr; tools.zsh probes HAVE_TLDR)
 brew "mas"           # Mac App Store CLI (os/macos.zsh adds masup/masls aliases)
 brew "trash"         # send files to macOS Trash (os/macos.zsh aliases rm -> trash)
 

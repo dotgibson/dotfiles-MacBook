@@ -4,7 +4,6 @@
 # runs once per session and is the right place for PATH-shaping env: Homebrew,
 # language toolchains, and the 1Password SSH-agent socket.
 # ──────────────────────────────────────────────────────────────────────────────
-
 # Homebrew — Apple Silicon first, then Intel
 if [[ -x /opt/homebrew/bin/brew ]]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -19,3 +18,10 @@ fi
 # Comment out if you don't use the 1Password agent.
 export SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 
+# 1Password SSH agent (macOS). `ssh`/`git` use keys held in 1Password. Guarded on
+# the socket actually existing, so this self-disables (and ssh falls back to the
+# default agent) when 1Password isn't installed/running — pointing SSH_AUTH_SOCK at
+# a missing socket otherwise breaks ssh-add and every agent operation.
+_op_ssh_sock="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+[[ -S "$_op_ssh_sock" ]] && export SSH_AUTH_SOCK="$_op_ssh_sock"
+unset _op_ssh_sock
