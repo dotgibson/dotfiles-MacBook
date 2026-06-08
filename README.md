@@ -25,6 +25,8 @@ zsh/
   zshrc             → ~/.config/zsh/.zshrc      (history + completion + the loader)
 macos/
   defaults.sh       `defaults write` system prefs (opt-in)       ← you provide
+ghostty/
+  config            Ghostty terminal config    → ~/.config/ghostty/config
 ssh/
   config            SSH client config (keys never tracked)       ← you provide
 ```
@@ -46,15 +48,18 @@ Flags: `--links-only` (just symlinks), `--no-brew` (skip Homebrew/bundle),
 ## How the shell loads
 
 `~/.zshenv` sets `ZDOTDIR=~/.config/zsh`, so the rest of zsh lives there.
-`.zprofile` (login) sets Homebrew/PATH; `.zshrc` (interactive) runs `compinit`
-then sources, in order:
+`.zprofile` (login) sets Homebrew/PATH; `.zshrc` (interactive) sources the Core
+modules + the macOS layer + your local overrides, in order:
 
 ```
-tools → aliases → functions → fzf → bindings → plugins → op → os → local
+tools → options → history → aliases → git → functions → fzf → bindings
+      → plugins → op → maint → update → os → local
 ```
 
-`tools…op` are Core; `os` is `os/macos.zsh`; `local` is your untracked
-`~/.config/zsh/local.zsh`. The order matters — see the comments in `zshrc`.
+`options.zsh` owns `compinit` + setopts and `history.zsh` owns history config
+(both run before `plugins.zsh`). `tools…update` are Core; `os` is
+`os/macos.zsh`; `local` is your untracked `~/.config/zsh/local.zsh`. The order
+is load-bearing — see the comments in `zshrc`.
 
 ## Updating Core
 

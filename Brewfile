@@ -20,7 +20,6 @@ brew "zoxide"
 brew "atuin"
 brew "direnv"
 brew "carapace"      # multi-shell completion engine (feeds fzf-tab in zsh; tools.zsh inits it)
-brew "stow"
 
 # ── Runtime / tooling managers ─────────────────────────────────────────────────
 brew "mise"                  # node/python/ruby/go/rust/java/lua — one manager
@@ -41,7 +40,7 @@ brew "sd"            # sed
 brew "jq"            # JSON
 brew "yq"            # YAML
 brew "gron"          # greppable JSON (zsh helper expects it)
-brew "xsv"           # fast CSV slicing
+brew "xan"           # fast CSV slicing (maintained successor to the archived xsv)
 brew "gnu-sed"       # GNU sed (`gsed`) — nvim-spectre + scripts expect it
 
 # ── Network — HTTP & DNS ───────────────────────────────────────────────────────
@@ -70,6 +69,8 @@ brew "pinentry-mac"  # GUI pinentry for gpg on macOS
 brew "fzf"
 brew "gum"
 brew "glow"          # markdown rendering
+brew "mas"           # Mac App Store CLI (os/macos.zsh adds masup/masls aliases)
+brew "trash"         # send files to macOS Trash (os/macos.zsh aliases rm -> trash)
 
 # ── 1Password ─────────────────────────────────────────────────────────────────
 cask "1password"
