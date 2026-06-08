@@ -1,4 +1,5 @@
 # dotfiles-MacBook/.gitignore — config + scripts only; never machine state/secrets.
+.claude/
 
 # machine-specific shell overrides (never synced; sourced last by .zshrc)
 zsh/local.zsh
