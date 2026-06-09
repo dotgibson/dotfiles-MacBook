@@ -12,6 +12,14 @@
 
 # ── Taps ──────────────────────────────────────────────────────────────────────
 
+# ── Mac App Store ─────────────────────────────────────────────────────────────
+brew "mas"           # Mac App Store CLI — `mas install <id>` / `mas upgrade`
+# Example App Store installs (uncomment + fill in your IDs):
+#   mas "Amphetamine",   id: 937984704
+#   mas "Lungo",         id: 1263070803
+#   mas "Tailscale",     id: 1475387142
+#   mas "Reeder.",       id: 1529448980
+
 # ── Terminal & Shell ───────────────────────────────────────────────────────────
 cask "ghostty"
 brew "zsh"
@@ -43,6 +51,8 @@ brew "yq"            # YAML
 brew "gron"          # greppable JSON (zsh helper expects it)
 brew "xan"           # fast CSV slicing (maintained successor to the archived xsv)
 brew "gnu-sed"       # GNU sed (`gsed`) — nvim-spectre + scripts expect it
+brew "viddy"         # watch  (real-time diff, colour; zsh aliases watch → viddy)
+brew "tealdeer"      # tldr   (fast Rust tldr client; zsh alias help → tldr)
 
 # ── Network — HTTP & DNS ───────────────────────────────────────────────────────
 brew "xh"            # HTTP client  (zsh aliases http/https → xh)
@@ -51,6 +61,7 @@ brew "gping"         # ping w/ graph (core alias ping → gping; tools.zsh probe
 
 # ── File management ────────────────────────────────────────────────────────────
 brew "yazi"
+brew "trash"         # rm → Trash  (macOS; safer than rm; macos.zsh aliases rm → trash)
 
 # ── Editor & multiplexer ───────────────────────────────────────────────────────
 brew "neovim"
