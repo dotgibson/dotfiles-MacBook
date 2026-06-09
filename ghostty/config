@@ -18,8 +18,8 @@ mouse-hide-while-typing = true
 # Window
 window-save-state = always
 confirm-close-surface = false
-window-padding-x = 0
-window-padding-y = 10
+window-padding-x = 15
+window-padding-y = 0
 
 # Quick terminal + key passthrough
 keybind = alt+space=toggle_quick_terminal
