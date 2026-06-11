@@ -36,8 +36,25 @@
 
 # ── Core modules + macOS layer + local overrides, in order ───────────────────
 # (history + completion/compinit + setopts are owned by history.zsh/options.zsh.)
+#
+# Each module is byte-compiled to a .zwc on the side before sourcing: when a
+# fresh $_f.zwc exists, `source $_f` loads the wordcode and skips re-parsing the
+# script — meaningful across ~13 modules sourced on every shell. The compile only
+# runs when the source is newer than its .zwc (or the .zwc is missing), so it's
+# self-healing: edit a module (or `git pull`) and the next shell recompiles just
+# that file; steady state is ~13 stats. zcompile is a builtin (no `>` redirection),
+# so options.zsh's NO_CLOBBER doesn't apply, and it writes the .zwc atomically.
+# The .zwc files land next to the symlinks in $ZSH_CFG (the runtime dir), so they
+# never touch the repo. `2>/dev/null`: on a read-only $ZSH_CFG, compile silently
+# no-ops and we just source the plain script.
 ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
 for _m in tools options history aliases git functions fzf bindings plugins op maint update os local; do
-  [[ -r "$ZSH_CFG/$_m.zsh" ]] && source "$ZSH_CFG/$_m.zsh"
+  _f="$ZSH_CFG/$_m.zsh"
+  [[ -r "$_f" ]] || continue
+  # zcompile with NO trailing name args = script mode: it writes "$_f.zwc". (A
+  # trailing function-name arg would switch it to function-digest mode, which
+  # `source` can't use as wordcode — so keep it single-arg.)
+  [[ -s "$_f.zwc" && ! "$_f" -nt "$_f.zwc" ]] || zcompile -R -- "$_f" 2>/dev/null
+  source "$_f"
 done
-unset _m
+unset _m _f

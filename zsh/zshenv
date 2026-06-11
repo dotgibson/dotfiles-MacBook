@@ -15,6 +15,13 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 # keep zsh's own files under ~/.config/zsh
 export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
 
+# Keep PATH/FPATH free of duplicate entries automatically. `-U` ties the `path`
+# array to dedup, so every later prepend (here, .zprofile's Homebrew/juliaup,
+# tools.zsh's .local/bin) collapses repeats on its own — the manual
+# `[[ ":$PATH:" != *...* ]]` guards become belt-and-suspenders rather than load-
+# bearing. Set in .zshenv so it's in force before anything touches PATH.
+typeset -U path fpath
+
 # editor / pager
 export EDITOR=nvim VISUAL=nvim
 
