@@ -20,7 +20,7 @@ mouse-hide-while-typing = true
 # Window
 window-save-state = always
 confirm-close-surface = false
-window-padding-x = 15
+window-padding-x = 5
 window-padding-y = 0
 window-padding-balance = true
 # absorb leftover space evenly (padding-x/y are asymmetric)
