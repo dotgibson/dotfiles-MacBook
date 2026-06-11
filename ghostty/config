@@ -1,6 +1,7 @@
 # Theme
 theme = TokyoNight
 background-opacity = 0.90
+background-blur = true            # frosted glass behind the 0.90 opacity (macOS)
 macos-window-buttons = hidden
 macos-titlebar-style = hidden
 
@@ -20,6 +21,16 @@ window-save-state = always
 confirm-close-surface = false
 window-padding-x = 15
 window-padding-y = 0
+window-padding-balance = true     # absorb leftover space evenly (padding-x/y are asymmetric)
+# Keyboard / macOS
+# Without this, macOS emits Unicode glyphs (Ω ≈ …) on Option instead of Alt — which
+# silently breaks every Alt binding downstream: zsh Alt+Z (zoxide jump), tmux Alt+H/L
+# (windows) and Alt+arrows (panes). `true` = both Options act as Alt; use `left` to
+# keep right-Option free for typing accented characters.
+macos-option-as-alt = true
+# Shell integration: defaults already enable cursor/title/path; this adds `sudo` so
+# password prompts behave correctly. (cursor/title/path stay on — the flag merges.)
+shell-integration-features = sudo
 
 # Quick terminal + key passthrough
 keybind = alt+space=toggle_quick_terminal
@@ -27,3 +38,6 @@ quick-terminal-position = top
 quick-terminal-animation-duration = 0.2
 keybind = ctrl+enter=text:\x1b[13;5u
 keybind = shift+enter=text:\x1b[13;2u
+
+# Discoverability: command palette (fuzzy-search every action + its keybind)
+keybind = cmd+shift+p=toggle_command_palette

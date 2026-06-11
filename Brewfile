@@ -51,7 +51,6 @@ brew "yq"            # YAML
 brew "gron"          # greppable JSON (zsh helper expects it)
 brew "xan"           # fast CSV slicing (maintained successor to the archived xsv)
 brew "gnu-sed"       # GNU sed (`gsed`) — nvim-spectre + scripts expect it
-brew "viddy"         # watch  (real-time diff, colour; zsh aliases watch → viddy)
 brew "tealdeer"      # tldr   (fast Rust tldr client; zsh alias help → tldr)
 
 # ── Network — HTTP & DNS ───────────────────────────────────────────────────────
@@ -82,10 +81,9 @@ brew "pinentry-mac"  # GUI pinentry for gpg on macOS
 brew "fzf"
 brew "gum"
 brew "glow"          # markdown rendering
-brew "tealdeer"      # fast tldr client (core alias help → tldr; tools.zsh probes HAVE_TLDR)
-brew "mas"           # Mac App Store CLI (os/macos.zsh adds masup/masls aliases)
-brew "trash"         # send files to macOS Trash (os/macos.zsh aliases rm -> trash)
-
+# NOTE: tealdeer / mas / trash are declared once above (Modern CLI / Mac App Store /
+# File management). Duplicate declarations were removed — brew bundle is happy with one.
+#
 # ── 1Password ─────────────────────────────────────────────────────────────────
 cask "1password"
 cask "1password-cli"
