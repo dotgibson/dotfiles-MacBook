@@ -1,7 +1,8 @@
 # Theme
 theme = TokyoNight
 background-opacity = 0.90
-background-blur = true            # frosted glass behind the 0.90 opacity (macOS)
+background-blur = true
+# frosted glass behind the 0.90 opacity (macOS)
 macos-window-buttons = hidden
 macos-titlebar-style = hidden
 
@@ -21,7 +22,8 @@ window-save-state = always
 confirm-close-surface = false
 window-padding-x = 15
 window-padding-y = 0
-window-padding-balance = true     # absorb leftover space evenly (padding-x/y are asymmetric)
+window-padding-balance = true
+# absorb leftover space evenly (padding-x/y are asymmetric)
 # Keyboard / macOS
 # Without this, macOS emits Unicode glyphs (Ω ≈ …) on Option instead of Alt — which
 # silently breaks every Alt binding downstream: zsh Alt+Z (zoxide jump), tmux Alt+H/L
