@@ -57,6 +57,7 @@ brew "tealdeer"      # tldr   (fast Rust tldr client; zsh alias help → tldr)
 brew "xh"            # HTTP client  (zsh aliases http/https → xh)
 brew "doggo"         # DNS client   (zsh alias dns → doggo)
 brew "gping"         # ping w/ graph (core alias ping → gping; tools.zsh probes HAVE_GPING)
+brew "croc"          # secure P2P file transfer — `croc send <file>` / `croc <code>` (e2e encrypted; own command)
 
 # ── File management ────────────────────────────────────────────────────────────
 brew "yazi"
@@ -74,6 +75,7 @@ brew "git-lfs"
 brew "lazygit"
 brew "gh"            # GitHub CLI
 brew "git-absorb"    # smart commit absorb
+brew "onefetch"      # git repo summary (language/churn/contributors) — `onefetch` in a repo; own command
 brew "gnupg"         # commit signing
 brew "pinentry-mac"  # GUI pinentry for gpg on macOS
 
@@ -81,6 +83,7 @@ brew "pinentry-mac"  # GUI pinentry for gpg on macOS
 brew "fzf"
 brew "gum"
 brew "glow"          # markdown rendering
+brew "navi"          # interactive fzf-driven cheatsheets (os/macos.zsh aliases cheat → navi)
 # NOTE: tealdeer / mas / trash are declared once above (Modern CLI / Mac App Store /
 # File management). Duplicate declarations were removed — brew bundle is happy with one.
 #

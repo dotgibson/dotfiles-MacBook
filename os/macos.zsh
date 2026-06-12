@@ -37,6 +37,15 @@ alias o='open'                                          # `o .` to open in Finde
 # `rm -f` / `command rm` still bypass this when you need the real thing.
 command -v trash >/dev/null 2>&1 && alias rm='trash'
 
+# navi: interactive, fzf-driven cheatsheets. Complements tealdeer (`help`, static
+# man-style) with runnable, arg-templated snippets. `cheat` opens the browser;
+# selecting an entry prints/runs the command. (No Ctrl-G widget — that key is
+# owned by sesh in Core's bindings.zsh; the keybinding belongs in dotfiles-core.)
+command -v navi >/dev/null 2>&1 && alias cheat='navi'
+
+# croc / onefetch are invoked directly (no alias): `croc send <file>` to ship a
+# file e2e-encrypted to another box; `onefetch` in a repo for an at-a-glance summary.
+
 # mas: Mac App Store CLI convenience helpers
 command -v mas >/dev/null 2>&1 && {
   alias masup='mas upgrade'                            # upgrade all App Store apps
