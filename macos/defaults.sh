@@ -132,6 +132,7 @@ ok "panels expanded, save-to-disk, plain-text TextEdit"
 
 # Reveal ~/Library (Apple hides it by default)
 chflags nohidden "${HOME}/Library" 2>/dev/null || true
+# shellcheck disable=SC2088  # "~/Library" here is human-readable display text, not a path
 ok "~/Library revealed"
 
 # ══════════════════════════════════════════════════════════════════════════════

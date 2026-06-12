@@ -56,7 +56,7 @@ err() { printf '  %s✗%s %s\n' "$c_r" "$c_0" "$*" >&2; }
 link() { # link <src> <dest>
   local src="$1" dest="$2"
   [[ -e "$src" ]] || {
-    info "skip (missing): ${src#$REPO/}"
+    info "skip (missing): ${src#"$REPO"/}"
     return 0
   }
   mkdir -p "$(dirname "$dest")"
@@ -127,9 +127,12 @@ wire_links() {
   # `prefix+I` inside tmux, or headless: ~/.config/tmux/plugins/tpm/bin/install_plugins
   local TPM_DIR="$CFG/tmux/plugins/tpm"
   if [[ ! -d "$TPM_DIR" ]]; then
-    git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR" &&
-      ok "tpm cloned" ||
+    # if/then/else (not A && B || C): a failed `ok` must not trigger the clone-failed note
+    if git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR"; then
+      ok "tpm cloned"
+    else
       info "tpm clone failed — clone it manually, then run prefix+I in tmux"
+    fi
   else
     ok "tpm present"
   fi

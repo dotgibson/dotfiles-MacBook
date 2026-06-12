@@ -1,0 +1,63 @@
+name: CI
+
+# Static-analysis gate for the repo-owned shell + the workflow itself.
+# Dotfiles can't be unit-tested, so shellcheck + shfmt + `bash -n` ARE the suite.
+# core/ is a vendored git-subtree (linted in dotfiles-core); a non-blocking
+# advisory step surfaces its findings without gating this repo.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    name: shell lint
+    runs-on: ubuntu-latest
+    env:
+      SHFMT_VERSION: "3.8.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Install shfmt (pinned)
+        run: |
+          curl -fsSL -o /tmp/shfmt \
+            "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_amd64"
+          sudo install -m 0755 /tmp/shfmt /usr/local/bin/shfmt
+          shfmt --version
+
+      - name: shellcheck
+        run: make shellcheck
+
+      - name: shfmt (format check)
+        run: make fmt-check
+
+      - name: bash -n (syntax)
+        run: make syntax
+
+      - name: core/ advisory (non-blocking)
+        run: make core-advisory
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: "1.7.7"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install actionlint (pinned)
+        run: |
+          curl -fsSL -o /tmp/actionlint.tgz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
+          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+
+      - name: actionlint
+        run: actionlint -color

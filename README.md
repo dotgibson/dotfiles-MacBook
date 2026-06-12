@@ -78,3 +78,39 @@ git subtree pull --prefix=core <your-remote>/dotfiles-core main --squash
 - **1Password SSH agent** — `.zprofile` points `SSH_AUTH_SOCK` at the 1Password
   socket; comment it out if you don't use it.
 - **Credentials** — git uses the macOS keychain via `osxkeychain`.
+
+## Development
+
+Static analysis is the test suite here — dotfiles can't really be unit-tested, so
+shellcheck + shfmt + `bash -n` are what guard every change. The same commands run
+locally and in CI:
+
+```bash
+brew bundle            # installs the lint toolchain (see Brewfile "Dev: lint & format")
+make lint              # shellcheck + shfmt -d + bash -n   (what CI runs)
+make fmt               # auto-format repo-owned bash in place
+make help              # list all targets
+pre-commit install     # optional: run the same gate at commit time
+```
+
+- **CI** — `.github/workflows/ci.yml` runs `make {shellcheck,fmt-check,syntax}` plus
+  `actionlint` on every push/PR. Tool versions (shfmt, actionlint) are pinned.
+- **Style** — repo-owned bash is 2-space (`shfmt -i 2`); `.editorconfig` is the
+  source of truth and `shfmt`/editors both read it.
+- **Scope** — `core/` is a vendored git-subtree from
+  [`dotfiles-core`](../dotfiles-core); the lint targets and pre-commit hooks
+  **exclude** it on purpose. Editing it here would diverge the subtree, so its
+  Lua/shell is linted in _that_ repo's CI. `make core-advisory` surfaces any
+  `core/` findings locally without gating.
+
+### Upstream (`core/`) follow-ups
+
+These were found during audit but belong to `dotfiles-core` (fix there, then
+`git subtree pull` / `sync-core.sh` brings them down — don't hand-edit `core/`):
+
+- `core/tmux/scripts/tmux-scratch.sh` — shebang is `#!/bin/bash`; every other
+  script uses `#!/usr/bin/env bash`.
+- `core/tmux/scripts/tmux-sessionizer.sh` — superseded by `tmux-sesh.sh` (per
+  `core.manifest`); it's dead and should be removed upstream.
+- `core/maint/dotfiles-maint.sh` — ShellCheck SC2015 (`A && B || C`) and SC2016.
+- `core/tmux/scripts/tmux-menu.sh` — ShellCheck SC2016.

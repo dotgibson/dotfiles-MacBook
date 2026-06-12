@@ -1,0 +1,27 @@
+root = true
+# Repo-wide baseline. shfmt reads this too, so shell indent here == `make fmt`.
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+# Repo-owned bash is 2-space (matches `shfmt -i 2`).
+[*.sh]
+indent_style = space
+indent_size = 2
+# Vendored tmux popup scripts under core/ are tab-indented upstream; honor that
+# so editors don't fight the subtree. (core/ is linted in dotfiles-core, not here.)
+[core/tmux/scripts/*.sh]
+indent_style = tab
+# Lua (core/nvim) — match stylua's default 2-space.
+[*.lua]
+indent_style = space
+indent_size = 2
+# Makefiles require real tabs.
+[Makefile]
+indent_style = tab
+# Markdown: don't strip trailing whitespace (two trailing spaces = hard break).
+[*.md]
+trim_trailing_whitespace = false

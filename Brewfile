@@ -79,6 +79,17 @@ brew "onefetch"      # git repo summary (language/churn/contributors) — `onefe
 brew "gnupg"         # commit signing
 brew "pinentry-mac"  # GUI pinentry for gpg on macOS
 
+# ── Dev: lint & format ─────────────────────────────────────────────────────────
+# The repo's own CI / pre-commit gate runs these; `make lint` uses the same set.
+# core/ (nvim Lua, tmux scripts) is vendored and linted upstream in dotfiles-core —
+# luacheck/stylua are here so you can run those checks locally before syncing Core.
+brew "shellcheck"    # static analysis for bash (bootstrap.sh, macos/defaults.sh, …)
+brew "shfmt"         # bash formatter (repo style: `shfmt -i 2`)
+brew "pre-commit"    # local commit-time lint gate — run `pre-commit install` once
+brew "actionlint"    # GitHub Actions workflow linter
+brew "luacheck"      # Lua linter (core/nvim — uses core/nvim/.luacheckrc)
+brew "stylua"        # Lua formatter (core/nvim)
+
 # ── Productivity ──────────────────────────────────────────────────────────────
 brew "fzf"
 brew "gum"
