@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# bin/bench-core.sh
+# ──────────────────────────────────────────────────────────────────────────────
+# Measure Core's contribution to interactive-shell startup time — the metric this
+# repo invests in (cached starship/zoxide/mise/atuin init in tools.zsh, deferred
+# heavy plugins in plugins.zsh) but never actually MEASURED, so a regression could
+# ship silently to all 9 OS repos. This is the missing perf guard: run it before
+# and after a change to the load path to see the delta.
+#
+# It benchmarks the SAME canonical load chain bin/test-core.sh asserts, in the
+# SAME hermetic sandbox (throwaway HOME/ZDOTDIR, pre-seeded EMPTY plugin dirs so
+# the first-run clone is a no-op) — so the number reflects Core's own load cost,
+# reproducibly and with no network.
+#
+# Graceful degradation (mirrors audit-core.sh / test-core.sh): with no zsh OR no
+# hyperfine it SKIPs and exits 0, so it is safe to call anywhere. hyperfine is the
+# tool tools.zsh already detects as HAVE_HYPERFINE and the perf note in tools.zsh
+# already points at (`hyperfine 'zsh -i -c exit'`).
+#
+# By default this only REPORTS the number (informational). Set CORE_BENCH_BUDGET_MS
+# to turn it into a GATE: the script exits non-zero if the mean startup exceeds the
+# budget, so a perf regression can fail CI instead of shipping silently to 9 repos.
+# Enforcement needs python3 to read hyperfine's JSON; with no budget set, behaviour
+# is unchanged (report only). Graceful skip still wins on a box with no zsh/hyperfine.
+#
+# Usage:
+#   ./bin/bench-core.sh                      # report the canonical-chain mean
+#   CORE_BENCH_RUNS=20 ./bin/bench-core.sh    # override the min run count
+#   CORE_BENCH_BUDGET_MS=60 ./bin/bench-core.sh  # FAIL if mean > 60 ms (gate mode)
+# ──────────────────────────────────────────────────────────────────────────────
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$HERE" || exit 1
+
+c_grn=$'\e[32m'
+c_yel=$'\e[33m'
+c_red=$'\e[31m'
+c_blu=$'\e[34m'
+c_rst=$'\e[0m'
+have() { command -v "$1" >/dev/null 2>&1; }
+skip() { printf '%s–%s %s\n' "$c_yel" "$c_rst" "$*"; }
+
+if ! have zsh; then
+  skip "bench skipped (zsh not installed)"
+  exit 0
+fi
+if ! have hyperfine; then
+  skip "bench skipped (hyperfine not installed — tools.zsh detects it as HAVE_HYPERFINE)"
+  exit 0
+fi
+
+SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/core-bench.XXXXXX")"
+trap 'rm -rf "$SANDBOX"' EXIT
+
+# Pre-seed empty plugin dirs so plugins.zsh's first-run `git clone` is a no-op
+# (hermetic, no network) — identical to bin/test-core.sh.
+mkdir -p "$SANDBOX/zdot/plugins"
+for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
+  zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
+  mkdir -p "$SANDBOX/zdot/plugins/$plug"
+done
+
+# The README/manifest canonical order (no os/local — those belong to OS repos).
+CORE_MODULES=(tools options history aliases git functions fzf bindings plugins op maint update)
+export CORE_DIR="$HERE/zsh"
+# The `$CORE_DIR/$_m` here is expanded by the zsh CHILD reading this .zshrc, not by
+# this bash parent — so SC2016 (un-expanded `$` in single quotes) is intended.
+# shellcheck disable=SC2016
+printf 'for _m in %s; do source "$CORE_DIR/$_m.zsh"; done\n' "${CORE_MODULES[*]}" \
+  >"$SANDBOX/zdot/.zshrc"
+
+runs="${CORE_BENCH_RUNS:-10}"
+printf '\n%s== Core startup benchmark (canonical .zshrc chain, hermetic) ==%s\n' "$c_blu" "$c_rst"
+
+# `zsh -i -c exit` sources the sandbox .zshrc (interactive, so the modules' `[[ $-
+# == *i* ]]` guards pass) and exits. --warmup primes the fs/exec cache so the
+# reported mean is steady-state, not first-run cold. --export-json captures the
+# mean for the optional budget gate below (the human table still prints).
+BUDGET="${CORE_BENCH_BUDGET_MS:-}"
+json="$SANDBOX/bench.json"
+HOME="$SANDBOX" ZDOTDIR="$SANDBOX/zdot" \
+  XDG_CACHE_HOME="$SANDBOX/cache" XDG_STATE_HOME="$SANDBOX/state" \
+  XDG_RUNTIME_DIR="$SANDBOX/run" CORE_DIR="$CORE_DIR" \
+  hyperfine --warmup 3 --min-runs "$runs" --export-json "$json" 'zsh -i -c exit'
+
+# ── optional budget gate ──────────────────────────────────────────────────────
+# Report-only unless CORE_BENCH_BUDGET_MS is set. hyperfine's JSON reports the mean
+# in SECONDS; python3 converts to ms and compares. No budget → no gate; a budget
+# with no python3 → loud skip rather than a false pass (the gate must be honest).
+[[ -z "$BUDGET" ]] && exit 0
+if ! have python3; then
+  skip "budget set ($BUDGET ms) but python3 absent — cannot read hyperfine JSON; not gating"
+  exit 0
+fi
+mean_ms="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["results"][0]["mean"]*1000)' "$json" 2>/dev/null)"
+[[ -n "$mean_ms" ]] || {
+  printf '%s✗%s could not parse hyperfine JSON for the budget gate\n' "$c_red" "$c_rst" >&2
+  exit 1
+}
+if python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) <= float(sys.argv[2]) else 1)' "$mean_ms" "$BUDGET"; then
+  printf '%s✓%s startup mean %.1f ms within budget %s ms\n' "$c_grn" "$c_rst" "$mean_ms" "$BUDGET"
+else
+  printf '%s✗%s startup mean %.1f ms EXCEEDS budget %s ms — perf regression\n' "$c_red" "$c_rst" "$mean_ms" "$BUDGET" >&2
+  exit 1
+fi

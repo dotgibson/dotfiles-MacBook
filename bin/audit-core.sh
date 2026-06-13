@@ -16,6 +16,9 @@
 #   3. shell syntax                     — bash -n on bash scripts; zsh -n on zsh modules
 #   4. lua                              — luacheck nvim/        (if luacheck present)
 #   5. lint                             — shellcheck            (if present)
+#   6. config files                     — toml/yaml parse-check (if python3 present)
+#   7. markdown                          — markdownlint (if markdownlint-cli2 present)
+#   8. behavioral                       — load-order smoke + function units (test-core.sh)
 #
 # We deliberately do NOT enforce shfmt: the hand-tuned scripts here use an
 # intentional compact one-liner style that shfmt would expand. shellcheck (real
@@ -64,10 +67,12 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # core/ subtree — repo-meta and dev tooling. Anything tracked, not matched by the
 # manifest, must appear here (or under a META_PREFIXES dir) or section 1 flags it.
 META_ALLOWLIST=(
-  README.md PORTING-MATRIX.md CONTRIBUTING.md LICENSE
-  core.manifest .gitignore .editorconfig .pre-commit-config.yaml
-  bin/sync-core.sh bin/audit-core.sh
+  README.md PORTING-MATRIX.md CONTRIBUTING.md CHANGELOG.md LICENSE SECURITY.md
+  core.manifest .gitignore .editorconfig .pre-commit-config.yaml .markdownlint.jsonc
+  bin/sync-core.sh bin/audit-core.sh bin/test-core.sh bin/bench-core.sh
+  Makefile
   nvim/.luacheckrc
+  CODEOWNERS dependabot.yml pull_request_template.md
 )
 # Directory prefixes whose tracked contents are allowlisted wholesale.
 META_PREFIXES=(examples/ .github/)
@@ -75,9 +80,12 @@ META_PREFIXES=(examples/ .github/)
 # ── 1. manifest <-> filesystem drift ─────────────────────────────────────────
 hdr "manifest ↔ filesystem"
 # Parse manifest: strip comments/blank lines, take the first whitespace token.
-mapfile -t MANIFEST_PATHS < <(
-  sed -e 's/#.*//' -e 's/[[:space:]]*$//' core.manifest | awk 'NF {print $1}'
-)
+# Use a read loop (not `mapfile`) — mapfile is bash 4+, and this gate must also
+# run on macOS's stock bash 3.2 (the dotfiles-MacBook target / the macOS CI leg).
+MANIFEST_PATHS=()
+while IFS= read -r p; do
+  MANIFEST_PATHS+=("$p")
+done < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' core.manifest | awk 'NF {print $1}')
 for p in "${MANIFEST_PATHS[@]}"; do
   if [[ "$p" == */ ]]; then
     if [[ -d "$p" ]]; then pass "dir  $p"; else fail "manifest lists missing dir:  $p"; fi
@@ -171,6 +179,68 @@ if have shellcheck; then
   ((sc_fail)) || pass "shellcheck (all bash scripts clean)"
 else
   skip "shellcheck (not installed)"
+fi
+
+# ── 6. config files (toml / yaml parse) ──────────────────────────────────────
+# A malformed starship.toml / mise config.toml / ci.yml is still valid *text* —
+# so zsh -n and shellcheck never look at it — yet it breaks every one of the 9
+# consumers at runtime (dead prompt, dead runtime manager, dead CI). Assert that
+# every tracked TOML and YAML file actually PARSES. Best-effort + graceful skip,
+# exactly like the linters above: TOML via python3 `tomllib` (stdlib since 3.11),
+# YAML via python3 PyYAML when importable. pre-commit's check-toml/check-yaml are
+# the hermetic author-time mirror of this same gate.
+hdr "config files (toml / yaml)"
+if have python3 && python3 -c 'import tomllib' 2>/dev/null; then
+  while IFS= read -r f; do
+    if python3 -c 'import tomllib,sys; tomllib.load(open(sys.argv[1],"rb"))' "$f" 2>/dev/null; then
+      pass "toml $f"
+    else fail "toml parse error: $f"; fi
+  done < <(git ls-files '*.toml' 2>/dev/null)
+else
+  skip "toml parse (python3 tomllib unavailable — needs python ≥3.11)"
+fi
+if have python3 && python3 -c 'import yaml' 2>/dev/null; then
+  while IFS= read -r f; do
+    # safe_load_all: workflow/compose YAML can be multi-document (--- separators).
+    if python3 -c 'import yaml,sys; list(yaml.safe_load_all(open(sys.argv[1])))' "$f" 2>/dev/null; then
+      pass "yaml $f"
+    else fail "yaml parse error: $f"; fi
+  done < <(git ls-files '*.yml' '*.yaml' 2>/dev/null)
+else
+  skip "yaml parse (python3 PyYAML not importable)"
+fi
+
+# ── 7. markdown (markdownlint) ────────────────────────────────────────────────
+# The docs ARE the deliverable on a public showcase repo, and they're the one file
+# class shellcheck/zsh -n/toml-yaml never look at — so a leaked template tag or a
+# broken heading ships unnoticed (it did: see CHANGELOG.md's history). markdownlint
+# is the gate; .markdownlint.jsonc is the shared rule config (line-length off for
+# the wide tables, everything structural on). Graceful skip when absent, exactly
+# like the linters above; pre-commit's markdownlint-cli2 hook is the author-time
+# mirror, and CI installs it so the gate actually runs there.
+hdr "markdown (markdownlint)"
+if have markdownlint-cli2; then
+  if markdownlint-cli2 "**/*.md" >/dev/null 2>&1; then
+    pass "markdownlint (all tracked markdown clean)"
+  else
+    fail "markdownlint reported issues — run: markdownlint-cli2 '**/*.md'"
+  fi
+else
+  skip "markdownlint (markdownlint-cli2 not installed — npm i -g markdownlint-cli2)"
+fi
+
+# ── 8. behavioral tests (load-order smoke + function unit tests) ──────────────
+# Static analysis above proves the modules PARSE; this proves they LOAD TOGETHER
+# in canonical order and that the pure functions behave. Delegated to test-core.sh
+# (single source of truth) but folded into ONE audit summary via CORE_TEST_NESTED.
+# Self-gates on zsh: with none installed it SKIPs, exactly like sections 3–5.
+hdr "behavioral (bin/test-core.sh)"
+TEST_ARGS=()
+((QUIET)) && TEST_ARGS=(--quiet)
+if CORE_TEST_NESTED=1 ./bin/test-core.sh "${TEST_ARGS[@]}"; then
+  pass "behavioral tests (load-order smoke + function units)"
+else
+  fail "behavioral tests failed — run: ./bin/test-core.sh"
 fi
 
 # ── summary ──────────────────────────────────────────────────────────────────
