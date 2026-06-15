@@ -38,13 +38,20 @@ jobs:
     name: shell lint
     runs-on: ubuntu-latest
     env:
+      # shfmt is NOT a Core gate (Core deliberately doesn't enforce shfmt), so it has no
+      # entry in the vendored tool-versions.env and stays a literal here.
       SHFMT_VERSION: "3.8.0"
-      # Pin shellcheck too (was an unpinned `apt-get install`): a distro/upstream bump
-      # could change findings and split "green locally / red in CI". Now every linter
-      # in this job is version-locked + cached, matching shfmt/actionlint.
-      SHELLCHECK_VERSION: "0.10.0"
     steps:
       - uses: actions/checkout@v4
+
+      # Load the pinned linter versions from the VENDORED Core single source rather than
+      # hardcoding them here — they had already drifted (this repo pinned actionlint 1.7.7
+      # while Core moved to 1.7.8). SHELLCHECK_VERSION (+ others) now come from
+      # core/scripts/tool-versions.env, so a Core bump propagates on the next subtree pull
+      # instead of silently splitting "green in Core / red here". Must precede the cache
+      # step below, which keys on $SHELLCHECK_VERSION.
+      - name: Load pinned tool versions (vendored Core single source)
+        run: grep -E '^[A-Z0-9_]+=' core/scripts/tool-versions.env >> "$GITHUB_ENV"
 
       # zsh is needed for `make zsh-syntax` + the repo behavioral tests (the repo-owned
       # zsh modules have no .sh extension, so the bash gate never reached them).
@@ -138,10 +145,13 @@ jobs:
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
-    env:
-      ACTIONLINT_VERSION: "1.7.7"
     steps:
       - uses: actions/checkout@v4
+
+      # ACTIONLINT_VERSION from the vendored Core single source (was a literal 1.7.7 here,
+      # already behind Core's 1.7.8). Must precede the cache step, which keys on it.
+      - name: Load pinned tool versions (vendored Core single source)
+        run: grep -E '^[A-Z0-9_]+=' core/scripts/tool-versions.env >> "$GITHUB_ENV"
 
       - name: Cache actionlint (pinned)
         uses: actions/cache@v4
