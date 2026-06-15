@@ -167,10 +167,13 @@ spin() {
   }
   "$@" >"$out" 2>&1 &
   local pid=$! frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
-  # SIGINT during a spin: kill the child, restore the cursor, then hand off to the
-  # global interrupt handler (partial summary + exit 130) — so Ctrl-C reads as
-  # "interrupted", not the "failed" path the killed child would otherwise trigger.
-  trap 'kill "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
+  # SIGINT during a spin: FORWARD the interrupt to the child (SIGINT, not the bare SIGTERM
+  # used before — so a child that only traps ^C actually stops) and REAP it with `wait`
+  # before handing off, so the work really halts instead of lingering. Then restore the
+  # cursor and hand off to the global interrupt handler (partial summary + exit 130) — so
+  # Ctrl-C reads as "interrupted", not the "failed" path the killed child would trigger.
+  # This mirrors Core's ui.zsh _core_spin, which already does SIGINT-forward + wait.
+  trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
   printf '\e[?25l' # hide cursor while spinning
   while kill -0 "$pid" 2>/dev/null; do
     printf '\r  %s%s%s %s' "$c_y" "${frames:i++%${#frames}:1}" "$c_0" "$label"
