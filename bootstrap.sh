@@ -176,11 +176,15 @@ spin() {
     info "would run: $*"
     return 0
   fi
-  # No TTY (or NO_COLOR honoured for the frames) → run plainly, output passes through.
+  # No TTY (CI, piped) → run plainly, output passes through; then emit a scannable
+  # done/failed marker so a log reads as discrete steps with outcomes, not a bare
+  # "label…" with no resolution (the TTY path below ends each step with ✓/✗ too).
   if [[ ! -t 1 ]]; then
     info "$label…"
     "$@"
-    return $?
+    local rc=$?
+    if ((rc == 0)); then ok "$label"; else err "$label — failed (exit $rc)"; fi
+    return "$rc"
   fi
   local out rc
   out="$(mktemp -t bootstrap-spin.XXXXXX)" || {
