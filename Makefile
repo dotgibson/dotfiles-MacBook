@@ -23,7 +23,7 @@ ZSH_FILES := zsh/zshenv zsh/zprofile zsh/zshrc os/macos.zsh
 
 .PHONY: help lint fmt fmt-check shellcheck syntax zsh-syntax check core-advisory \
         tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core \
-        core-audit verify-core
+        core-audit verify-core check-core-freshness
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -58,6 +58,9 @@ core-audit: ## Gate the vendored Core subtree with its OWN audit (manifest/exec-
 
 verify-core: ## Assert vendored core/ is byte-for-byte upstream @ the recorded subtree-split (catches hand-edits + orphans the dir-level manifest misses)
 	@./test/verify-core.sh
+
+check-core-freshness: ## Is the vendored core/ behind upstream? (the nudge to run sync-core)
+	@./test/check-core-freshness.sh
 
 test: ## Run the vendored Core regression harness (self-skips without zsh)
 	@cd core && ./scripts/test-core.sh
