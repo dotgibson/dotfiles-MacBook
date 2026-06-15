@@ -8,6 +8,13 @@
 #
 # Offensive / pentest tooling intentionally does NOT live here — it lives in
 # dotfiles-Kali. Keep this box a clean dev/security-engineering environment.
+#
+# Reproducibility: `brew bundle` (which bootstrap.sh runs) writes a
+# Brewfile.lock.json pinning the exact formula/cask versions it resolved. COMMIT
+# that lock — it is tracked, not gitignored — so a machine provisioned weeks later
+# gets the same toolchain. This is the same supply-chain discipline the zsh
+# plugins (pinned SHAs in core/zsh/plugins.zsh) and the CI linters (pinned
+# shfmt/actionlint releases) already follow; the Brewfile was the one floating piece.
 # ════════════════════════════════════════════════════════════════════════════
 
 # ── Taps ──────────────────────────────────────────────────────────────────────

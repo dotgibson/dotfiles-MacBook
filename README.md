@@ -37,13 +37,16 @@ ssh/
 git clone <your-remote>/dotfiles-MacBook ~/dotfiles-MacBook
 cd ~/dotfiles-MacBook
 git subtree add --prefix=core <your-remote>/dotfiles-core main --squash   # one-time
+./bootstrap.sh --links-only --dry-run   # preview the symlink plan (changes nothing)
 ./bootstrap.sh                 # Homebrew + brew bundle + symlinks
 exec zsh
 ./bootstrap.sh --macos-defaults   # optional: apply system prefs (may need logout)
 ```
 
-Flags: `--links-only` (just symlinks), `--no-brew` (skip Homebrew/bundle),
-`--macos-defaults` (also run `macos/defaults.sh`).
+Flags: `--dry-run`/`-n` (print every planned action, change nothing),
+`--links-only` (just symlinks), `--no-brew` (skip Homebrew/bundle),
+`--set-shell` (make the Homebrew zsh your login shell), `--macos-defaults`
+(also run `macos/defaults.sh`; that script takes its own `--dry-run` too).
 
 ## How the shell loads
 
@@ -87,14 +90,23 @@ locally and in CI:
 
 ```bash
 brew bundle            # installs the lint toolchain (see Brewfile "Dev: lint & format")
-make lint              # shellcheck + shfmt -d + bash -n   (what CI runs)
+make lint              # shellcheck + shfmt -d + bash -n + zsh -n   (what CI gates)
+make test              # vendored Core load-order + function tests (needs zsh)
 make fmt               # auto-format repo-owned bash in place
-make help              # list all targets
+make help              # list all targets (bootstrap, doctor, sync-core, …)
 pre-commit install     # optional: run the same gate at commit time
 ```
 
-- **CI** — `.github/workflows/ci.yml` runs `make {shellcheck,fmt-check,syntax}` plus
-  `actionlint` on every push/PR. Tool versions (shfmt, actionlint) are pinned.
+The repo-owned **zsh** modules (`zsh/zshenv`, `zsh/zprofile`, `zsh/zshrc`,
+`os/macos.zsh`) have no `.sh` extension, so they're gated separately by
+`make zsh-syntax` (`zsh -n`), folded into `make lint`.
+
+- **CI** — `.github/workflows/ci.yml` runs `make {shellcheck,fmt-check,syntax,zsh-syntax}`,
+  a `core regression` job (`make test`), and `actionlint`, on every push/PR. Runs
+  cancel superseded ones (`concurrency`); tool versions (shfmt, actionlint) are
+  pinned and cached. `pre-commit` mirrors the same gates locally.
+- **Reproducible installs** — commit the `Brewfile.lock.json` that `brew bundle`
+  generates; it pins exact package versions (see the Brewfile header).
 - **Style** — repo-owned bash is 2-space (`shfmt -i 2`); `.editorconfig` is the
   source of truth and `shfmt`/editors both read it.
 - **Scope** — `core/` is a vendored git-subtree from
