@@ -10,7 +10,12 @@ macos-titlebar-style = hidden
 font-family = 'CaskaydiaCove Nerd Font'
 font-size = 16
 font-thicken = true
-font-feature = "+ligatures"
+# Programming ligatures. Ghostty expects OpenType feature TAGS (unquoted, one per
+# line, repeatable) — not `"+ligatures"`, which is not a real tag and was silently
+# ignored, so ligatures fell back to default behavior. `calt` (contextual
+# alternates) drives CaskaydiaCove's -> => != etc.; `liga` enables standard ligatures.
+font-feature = calt
+font-feature = liga
 
 # Cursor
 cursor-style = block
