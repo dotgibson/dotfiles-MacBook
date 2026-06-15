@@ -426,6 +426,7 @@ _classify_is "zsh/ change → shell gate only" 'zsh/ui.zsh' true false
 _classify_is "nvim/ change → nvim gate only" 'nvim/init.lua' false true
 _classify_is "docs (*.md) change → no gate" 'README.md' false false
 _classify_is "infra (scripts/) change → full run" 'scripts/audit-core.sh' true true
+_classify_is "infra (.shellcheckrc) change → full run" '.shellcheckrc' true true
 _classify_is "__ALL__ sentinel → full run" '__ALL__' true true
 _classify_is "unrecognised path → FAIL CLOSED to full run" 'newdir/thing.xyz' true true
 _classify_is "mixed shell+nvim set → union of both" $'zsh/ui.zsh\nnvim/init.lua' true true
@@ -500,6 +501,66 @@ else
   pass "all ${#CORE_MODULES[@]} modules loaded in canonical order (clean stderr)"
 fi
 
+# ── A2. consumer integration (Core + os/local layers) ─────────────────────────
+# Core NEVER loads alone in production: each OS repo's .zshrc sources it in canonical
+# order and THEN its own os.zsh + local.zsh (README: tools→…→update→os→local). Section
+# A proves Core-in-isolation; this proves the documented CONSUMPTION — that the Core→OS
+# CONTRACT holds at the real 9-repo fan-out shape. The os.zsh stub here uses exactly
+# what an OS layer relies on Core to have left defined: _cache_eval (tools.zsh's API for
+# the OS layer's gh/uv/ty inits — NOT unfunctioned like _have is), the _core_* UX
+# primitives, and an alias override (the macOS rm→trash pattern). local.zsh overrides a
+# Core default. If Core ever stops exporting one of those, this fails — where Section A,
+# loading Core alone, would stay green.
+hdr "consumer integration (Core + os/local layers, canonical loader)"
+INTEG="$SANDBOX/integ"
+mkdir -p "$INTEG/plugins"
+for plug in zsh-defer zsh-vi-mode zsh-history-substring-search \
+  zsh-autosuggestions fast-syntax-highlighting fzf-tab zsh-you-should-use; do
+  mkdir -p "$INTEG/plugins/$plug"
+done
+# os.zsh: realistic OS-layer file. Exercises the Core helpers an OS repo depends on;
+# any reference to an undefined helper prints to stderr (the failure signal below).
+cat >"$INTEG/os.zsh" <<'OSZSH'
+# stub os.zsh — must be able to use the API Core promises the OS layer.
+(( $+functions[_cache_eval] )) || print -u2 "os.zsh: _cache_eval missing (tools.zsh API gone)"
+(( $+functions[_core_ok]    )) || print -u2 "os.zsh: _core_ok missing (ui.zsh API gone)"
+# the documented gh/uv/ty pattern: _cache_eval a tool AFTER options.zsh set NO_CLOBBER.
+# The generator must emit SOURCEABLE zsh (real tools emit an init script); a comment is
+# a valid no-op init and proves the generate→cache→source path works under NO_CLOBBER.
+_cache_eval faketool printf '# faketool cached init (integration stub)\n' >/dev/null
+alias rm='rm -i'   # OS layer overriding a safety net (macOS does rm→trash here)
+OSZSH
+# local.zsh: machine-specific overrides (identity/toggles). Overriding a Core default
+# is the whole reason it loads LAST.
+cat >"$INTEG/local.zsh" <<'LOCALZSH'
+# stub local.zsh — last word on this machine.
+UPDATE_CHECK_ENABLED=0
+LOCALZSH
+{
+  printf 'for _m in %s; do source "$CORE_DIR/$_m.zsh"; done\n' "${CORE_MODULES[*]}"
+  printf 'source "$ZDOTDIR/os.zsh"\n'
+  printf 'source "$ZDOTDIR/local.zsh"\n'
+  printf 'print -r -- "INTEG_OK"\n'
+} >"$INTEG/.zshrc"
+integ_out="$(
+  HOME="$SANDBOX" ZDOTDIR="$INTEG" \
+    XDG_CACHE_HOME="$SANDBOX/integ-cache" XDG_STATE_HOME="$SANDBOX/integ-state" \
+    XDG_RUNTIME_DIR="$SANDBOX/run" CORE_DIR="$CORE_DIR" \
+    zsh -i -c exit 2>"$INTEG/integ.err"
+)"
+integ_errs="$(grep -Ei \
+  'command not found|parse error|: no such file or directory|not defined|missing|bad pattern|bad math expression|maximum nested' \
+  "$INTEG/integ.err" 2>/dev/null || true)"
+if ! printf '%s' "$integ_out" | grep -q '^INTEG_OK$'; then
+  fail "consumer load (Core+os+local) did not reach the end — a layer aborted"
+  [[ -s "$INTEG/integ.err" ]] && sed 's/^/    /' "$INTEG/integ.err" >&2
+elif [[ -n "$integ_errs" ]]; then
+  fail "errors during consumer load (Core→OS contract broken):"
+  printf '%s\n' "$integ_errs" | sed 's/^/    /' >&2
+else
+  pass "Core + os + local loaded in canonical order (Core→OS contract holds)"
+fi
+
 # ── B. function unit tests ────────────────────────────────────────────────────
 hdr "function unit tests (functions.zsh)"
 FN="$HERE/zsh/functions.zsh"
@@ -563,12 +624,48 @@ check "serve rejects a non-numeric port" \
   'serve abc 2>/dev/null; (( $? != 0 ))'
 check "serve rejects an out-of-range port" \
   'serve 99999 2>/dev/null; (( $? != 0 ))'
+# serve -l/--local (#10): the loopback flag must be ACCEPTED as a flag (not mis-read as
+# the port) while the port is still validated, and an unknown flag must be rejected — all
+# before python ever binds, so these stay non-blocking.
+check "serve rejects an unknown flag (-l/--local is the only flag)" \
+  'serve --nope 2>/dev/null; (( $? != 0 ))'
+check "serve -l is parsed as a flag and still validates the port" \
+  'serve -l abc 2>/dev/null; (( $? != 0 ))'
+# Uniform -h/--help contract (U6): every user-facing verb answers --help on STDOUT
+# and returns 0 (a help REQUEST is success, not misuse). This also guards the bugs
+# where --help used to be mis-read as an operand — serve as a bad port, extract as a
+# missing file (both returned non-zero); the guard must short-circuit before that.
+check "mkcd --help prints usage to stdout and returns 0" \
+  'out=$(mkcd --help); (( $? == 0 )) && [[ $out == *"usage: mkcd"* ]]'
+check "serve --help returns 0 (not mis-read as a bad port)" \
+  'out=$(serve --help); (( $? == 0 )) && [[ $out == *"usage: serve"* ]]'
+check "extract -h returns 0 (not mis-read as a missing file)" \
+  'out=$(extract -h); (( $? == 0 )) && [[ $out == *"usage: extract"* ]]'
+# core-version (#4): reports the vendored Core stamp so an OS repo can tell WHICH Core
+# it carries. $_CORE_VERSION_FILE resolves (via %x) to this repo's core.version here.
+check "core-version prints the vendored SemVer stamp" \
+  'out=$(core-version); (( $? == 0 )) && [[ $out == "dotfiles-core "[0-9]* ]]'
+check "core-version --help returns 0 (not mis-read)" \
+  'out=$(core-version --help); (( $? == 0 )) && [[ $out == *"usage: core-version"* ]]'
+# core-doctor (#9): the shell-side health report. Must render and return 0 even on a
+# bare box (every tool ✗) — it's read-only diagnostics, never a hard failure.
+check "core-doctor renders a health report and returns 0" \
+  'out=$(NO_COLOR=1 core-doctor 2>&1); (( $? == 0 )) && [[ $out == *dotfiles-core* && $out == *"modern CLI"* ]]'
+check "core-doctor --help returns 0 (not mis-read)" \
+  'out=$(core-doctor --help); (( $? == 0 )) && [[ $out == *"usage: core-doctor"* ]]'
 # core-help (U5): the width-aware renderer must emit every verb and never crash on its
 # kw arithmetic — including a pathologically narrow terminal where the key column clamps.
 check "core-help renders all verbs (wide terminal)" \
   'out=$(COLUMNS=120 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* && $out == *"maint-install"* && $out == *serve* ]]'
 check "core-help renders cleanly on a pathologically narrow terminal" \
   'out=$(COLUMNS=12 core-help 2>&1); (( $? == 0 )) && [[ $out == *mkcd* ]]'
+# _core_hint width-aware wrapping (U9): a known narrow width wraps with the
+# continuation aligned under the text; an UNKNOWN width (non-tty, COLUMNS=0 here) must
+# NOT wrap, so captured/logged hints stay one line (no regression for the other tests).
+check "_core_hint stays one line when the terminal width is unknown" \
+  'out=$(_core_hint install fzf, then retry 2>&1); L=("${(@f)out}"); (( ${#L} == 1 )) && [[ $out == *"hint: install"* ]]'
+check "_core_hint wraps a long hint at a narrow COLUMNS with aligned continuation" \
+  'out=$(COLUMNS=40 _core_hint alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima 2>&1); L=("${(@f)out}"); (( ${#L} >= 2 )) && [[ ${L[1]} == "  hint: "* && ${L[2]} == "        "* ]]'
 check "extract rejects a non-existent file" \
   'extract /no/such/archive.tar.gz; (( $? != 0 ))'
 check "extract rejects a known file of unknown format" \
@@ -657,6 +754,87 @@ _pm_only ""
 ucheck "update: _pkgup_mgr reports none on a bare PATH" \
   "source '$UPD'; [[ \$(_pkgup_mgr) == none ]]" \
   PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up --help must print usage and return 0 WITHOUT attempting an update — the bug the
+# help guard fixes (it used to fall through, not being -y, and run the upgrade). Run
+# on a bare PATH so a regressed guard reaching _pkgup_mgr → none → returns 1, failing
+# this test loudly instead of silently passing.
+_pm_only ""
+ucheck "update: up --help returns 0 and does not attempt an update" \
+  "source '$UI'; source '$UPD'; out=\$(up --help); (( \$? == 0 )) && [[ \$out == *'usage: up'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up's pre-confirm PREVIEW: _pkgup_list surfaces the upgradable package NAMES (the
+# count is already in the nudge) so `up` shows what will change before the destructive
+# sync. Stub apt-get's `-s upgrade` simulate output; mgr pins to apt via isolated PATH.
+rm -rf "$PMBIN"
+mkdir -p "$PMBIN"
+printf '#!/bin/sh\ncase "$*" in *"-s upgrade"*) printf "Inst foo [1.0] (1.1)\\nInst bar [2.0] (2.1)\\n";; esac\n' >"$PMBIN/apt-get"
+chmod +x "$PMBIN/apt-get"
+# The apt arm pipes to awk; the isolated PATH has only the stub, so symlink the real
+# awk in (like the clip ladder symlinks bash/tr). It's not a package manager, so
+# _pkgup_mgr still resolves to apt — the isolation we want.
+ln -s "$(command -v awk)" "$PMBIN/awk"
+ucheck "update: _pkgup_list surfaces upgradable package names (apt)" \
+  "source '$UPD'; out=\$(_pkgup_list); [[ \$out == *foo* && \$out == *bar* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up --dry-run (#8): the non-destructive inspect — list what WOULD upgrade and exit 0,
+# applying nothing. Same apt stub as above; assert the names print and the rc is 0.
+ucheck "update: up --dry-run lists pending packages and exits 0 (applies nothing)" \
+  "source '$UI'; source '$UPD'; out=\$(up --dry-run); (( \$? == 0 )) && [[ \$out == *foo* && \$out == *bar* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# up strict flag parsing: every arg is parsed (not just $1), so an unknown flag is
+# REJECTED in Core's voice (rc 1 — the verb-layer usage-error convention, same as
+# serve/mkcd/…) instead of silently falling through to a real, privileged update —
+# and -y/-n together (apply vs inspect-only) is refused as contradictory. Both
+# rejections happen BEFORE _pkgup_mgr, so the manager doesn't matter.
+ucheck "update: up rejects an unknown flag (rc 1, does not attempt an update)" \
+  "source '$UI'; source '$UPD'; out=\$(up --bogus 2>&1); (( \$? == 1 )) && [[ \$out == *'unexpected argument'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "update: up refuses -y and -n together (mutually exclusive, rc 1)" \
+  "source '$UI'; source '$UPD'; out=\$(up -y -n 2>&1); (( \$? == 1 )) && [[ \$out == *'mutually exclusive'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# core-help context-awareness (U7): a row whose tool is ABSENT on this box must be
+# tagged "needs <tool>", while an always-on verb (mkcd) still renders normally. Drive
+# it on a bare PATH so fzf is guaranteed missing, making the assertion deterministic.
+_pm_only ""
+ucheck "core-help annotates an unavailable tool (needs fzf when fzf absent)" \
+  "source '$UI'; source '$FN'; out=\$(COLUMNS=120 NO_COLOR=1 core-help); [[ \$out == *'needs fzf'* && \$out == *mkcd* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# fzf.zsh verbs (fif/fbr) must degrade in Core's voice on a bare box — a raw "command
+# not found" is the bug this guards (fcd already did; fif/fbr/zoxide-jump did not).
+# Drive on an isolated PATH (fzf guaranteed absent) so the error path is deterministic.
+FZF_FILE="$HERE/zsh/fzf.zsh"
+_pm_only ""
+ucheck "fif rejects cleanly without fzf (Core error voice, not 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; out=\$(fif foo 2>&1); (( \$? != 0 )) && [[ \$out == *'fif: requires fzf'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "fbr rejects cleanly without fzf (Core error voice, not 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; out=\$(fbr 2>&1); (( \$? != 0 )) && [[ \$out == *'fbr: requires fzf'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# zle-widget graceful degradation (regression gate for the Ctrl-F/Ctrl-R bare-box bug):
+# both are bound UNCONDITIONALLY in bindings.zsh, so on a box without fzf/fd their widget
+# bodies must warn in Core's voice and repaint — NOT leak a raw "command not found" (the
+# class of bug fif/fbr/Alt-Z already guard; Ctrl-F/Ctrl-R lacked it). `zle` is stubbed to a
+# no-op so `zle reset-prompt` is callable outside an active ZLE; PATH is isolated so fzf/fd
+# are guaranteed absent. Alt-Z is asserted too, locking in the parity across all three.
+_pm_only ""
+ucheck "Ctrl-F widget degrades in Core's voice without fzf/fd (no 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; FD_BIN=''; out=\$(_fzf_file_no_hidden 2>&1); (( \$? != 0 )) && [[ \$out == *'Ctrl-F: needs'* && \$out != *'command not found'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "Ctrl-R widget degrades in Core's voice without fzf (no 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; out=\$(_fzf_history_clean 2>&1); (( \$? != 0 )) && [[ \$out == *'Ctrl-R: needs'* && \$out != *'command not found'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+ucheck "Alt-Z widget degrades in Core's voice without zoxide/fzf (no 'command not found')" \
+  "source '$UI'; source '$FZF_FILE' 2>/dev/null; zle() { : }; out=\$(_fzf_zoxide_jump 2>&1); (( \$? != 0 )) && [[ \$out == *'Alt-Z: needs'* && \$out != *'command not found'* ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0
+# Colour degradation (U8): the nudge/welcome accents must drop from 24-bit hex to a
+# 256-colour code when the terminal doesn't advertise truecolor — so a 16/256-colour
+# TTY never receives a raw 24-bit escape. Assert both arms of the $COLORTERM gate.
+ucheck "update: accents degrade to 256-colour without truecolor" \
+  "source '$UPD'; [[ \$_PKGUP_ACCENT == 75 && \$_PKGUP_MUTED == 244 ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0 COLORTERM=
+ucheck "update: accents use truecolor hex when COLORTERM advertises it" \
+  "source '$UPD'; [[ \$_PKGUP_ACCENT == '#7aa2f7' ]]" \
+  PATH="$PMBIN" UPDATE_CHECK_ENABLED=0 CORE_WELCOME=0 COLORTERM=truecolor
 
 # maint.zsh: _maint_scheduler must always resolve to a REAL scheduler token, never empty
 # or garbage. With systemctl absent (isolated PATH) and crontab present as the fallback,
@@ -666,6 +844,53 @@ _pm_only crontab
 ucheck "maint: _maint_scheduler resolves to a valid scheduler" \
   "source '$UI'; source '$MNT'; [[ \$(_maint_scheduler) == (systemd|launchd|cron) ]]" \
   PATH="$PMBIN"
+# maint-log defensive input (#6): a non-numeric N must be rejected in Core's voice, not
+# handed to `tail` to fail with a raw "invalid number". -f/--follow and a positive int
+# are the only valid args (mirrors serve/cdup/mkbak's input guards).
+ucheck "maint: maint-log rejects a non-numeric N in Core's voice" \
+  "source '$UI'; source '$MNT'; out=\$(maint-log abc 2>&1); (( \$? != 0 )) && [[ \$out == *'maint-log: N must be'* ]]" \
+  PATH="$PMBIN"
+
+# ── maint scheduler artifacts (systemd unit / launchd plist / cron line) ──────
+# maint-install GENERATES a systemd unit+timer, a launchd plist (XML), and a cron line —
+# fan-out artifacts that, until now, had NO gate: a malformed OnCalendar, a broken plist,
+# or a bad cron field only fails on the user's box, then fans out to 9 repos. Every OTHER
+# fan-out artifact class is gated (toml/yaml/json §6, workflows actionlint §8); this closes
+# the maint hole the same way. Hermetic: override _maint_scheduler to pick the branch,
+# stub systemctl/launchctl/crontab to no-ops (so nothing touches the real system), sandbox
+# HOME/XDG, render at 09:30, then VALIDATE the generated artifact. The runner path resolves
+# to this repo's maint/dotfiles-maint.sh via maint.zsh's %x, so the [[ -f ]] guard passes.
+hdr "maint scheduler artifacts (systemd / launchd / cron, hermetic render)"
+SCHEDBIN="$SANDBOX/schedbin"
+mkdir -p "$SCHEDBIN"
+for s in systemctl launchctl; do
+  printf '#!/bin/sh\n:\n' >"$SCHEDBIN/$s"
+  chmod +x "$SCHEDBIN/$s"
+done
+# crontab stub: `-l` prints nothing (no existing table); `-` captures the new table to a
+# file so we can assert the generated line instead of mutating the real crontab.
+printf '#!/bin/sh\ncase "$1" in -l) exit 0 ;; -) cat > "$CRON_CAPTURE" ;; *) exit 0 ;; esac\n' >"$SCHEDBIN/crontab"
+chmod +x "$SCHEDBIN/crontab"
+
+# systemd: the timer's OnCalendar must be the rendered HH:MM, and the service must point
+# ExecStart at the runner. Override the scheduler so the branch runs on any host.
+ucheck "maint: systemd timer+service render with a valid OnCalendar" \
+  "source '$UI'; source '$MNT'; _maint_scheduler() { echo systemd }; maint-install 09:30 >/dev/null 2>&1; ud=\"\$XDG_CONFIG_HOME/systemd/user\"; [[ -f \"\$ud/dotfiles-maint.timer\" && -f \"\$ud/dotfiles-maint.service\" ]] || exit 1; grep -q 'OnCalendar=\*-\*-\* 09:30:00' \"\$ud/dotfiles-maint.timer\" || exit 1; grep -q 'ExecStart=.*dotfiles-maint.sh' \"\$ud/dotfiles-maint.service\"" \
+  PATH="$SCHEDBIN:$PATH" XDG_CONFIG_HOME="$SANDBOX/sched-systemd"
+# cron: the captured table line must be a well-formed 5-field schedule at MM HH, tagged.
+ucheck "maint: cron line renders as a valid 5-field schedule" \
+  "source '$UI'; source '$MNT'; _maint_scheduler() { echo cron }; maint-install 09:30 >/dev/null 2>&1; [[ -f \"\$CRON_CAPTURE\" ]] || exit 1; grep -qE '^30 09 \* \* \* .*dotfiles-maint\.sh # dotfiles-maint\$' \"\$CRON_CAPTURE\"" \
+  PATH="$SCHEDBIN:$PATH" CRON_CAPTURE="$SANDBOX/cron.captured"
+# launchd: the plist must be WELL-FORMED XML (plistlib parses it) with the rendered
+# Hour/Minute — the one artifact that's silent text the other gates never inspect. Needs
+# python3 (stdlib plistlib); skip gracefully otherwise, like the linters above.
+if have python3; then
+  ucheck "maint: launchd plist is well-formed XML with the rendered Hour/Minute" \
+    "source '$UI'; source '$MNT'; _maint_scheduler() { echo launchd }; maint-install 09:30 >/dev/null 2>&1; p=\"\$HOME/Library/LaunchAgents/com.dotfiles.maint.plist\"; [[ -f \"\$p\" ]] || exit 1; python3 -c 'import sys,plistlib; d=plistlib.load(open(sys.argv[1],\"rb\")); s=d[\"StartCalendarInterval\"]; sys.exit(0 if s[\"Hour\"]==9 and s[\"Minute\"]==30 else 1)' \"\$p\"" \
+    PATH="$SCHEDBIN:$PATH" HOME="$SANDBOX/sched-launchd"
+else
+  skip "maint launchd plist (python3 absent — cannot parse plist XML)"
+fi
 
 # update.zsh: the first-run welcome (U2 — the cheat-sheet discoverability hint) must
 # greet EXACTLY ONCE per machine. Drive _core_welcome directly (the TTY gate lives at
@@ -681,12 +906,28 @@ ucheck "update: welcome stays silent (no greet, no sentinel) without a tty" \
   "o=\$(source '$UPD'); [[ \$o != *core-help* && ! -e \$XDG_STATE_HOME/dotfiles-core/.welcomed ]]" \
   XDG_STATE_HOME="$SANDBOX/welcome-notty" NO_COLOR=1 UPDATE_CHECK_ENABLED=0 CORE_WELCOME=1
 
-# completions (U3): every first-party verb must have a #compdef that compinit picks up
-# off the vendored fpath dir — a missing/typo'd tag means no tab-completion for that
-# command across all 9 repos, with nothing else to catch it. Put the dir on fpath (as
-# options.zsh does), run compinit, and assert each verb resolved to a completion.
-ucheck "completions: compinit wires every Core first-party completion" \
-  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in mkcd mkbak extract up serve cdup fcd please core-help cheat; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
+# completions (U3 / DERIVED regression gate): every first-party PUBLIC verb must have a
+# #compdef that compinit resolves off the vendored fpath dir — a missing/typo'd tag
+# means no tab-completion for that command across all 9 repos, with nothing else to
+# catch it. The verb set is DERIVED from the source (top-level functions whose names
+# don't start with `_`, Core's private-helper convention) minus an explicit allowlist
+# of public-but-non-completable functions: the zsh-vi-mode init HOOK, the git-alias
+# helpers, and the internal plugin updater — none are user verbs. So a NEW verb shipped
+# WITHOUT a completion now FAILS here — the regression the OLD hardcoded list couldn't
+# catch (it silently omitted update-check + opssh, which had no completion at all). This
+# mirrors audit-core.sh's META_ALLOWLIST pattern: derive from the tree, exempt by name.
+# `cheat` (alias → core-help) is appended so the aliased #compdef tag is exercised too.
+COMP_ALLOWLIST=" git_main_branch git_current_branch zvm_after_init zplugin-update "
+COMP_VERBS=()
+while IFS= read -r _v; do
+  case " $COMP_ALLOWLIST " in *" $_v "*) continue ;; esac
+  COMP_VERBS+=("$_v")
+done < <(grep -rhoE '^(function[[:space:]]+)?[A-Za-z][A-Za-z0-9_-]*\(\)|^function[[:space:]]+[A-Za-z][A-Za-z0-9_-]*[[:space:]]*\{' "$HERE"/zsh/*.zsh |
+  sed -E 's/^function[[:space:]]+//; s/\(\).*//; s/[[:space:]]*\{.*//' |
+  grep -vE '^_' | sort -u)
+COMP_VERBS+=(cheat)
+ucheck "completions: every first-party verb has a compinit-resolved completion (derived)" \
+  "fpath=('$HERE/zsh/completions' \$fpath); autoload -Uz compinit && compinit -u -d '$SANDBOX/zcd-comp' >/dev/null 2>&1; for c in ${COMP_VERBS[*]}; do [[ -n \${_comps[\$c]:-} ]] || { print \"no completion registered for: \$c\"; exit 1; }; done"
 
 # ── summary ───────────────────────────────────────────────────────────────────
 summary

@@ -35,6 +35,7 @@ _maint_scheduler() {
 
 maint-install() {
   emulate -L zsh
+  _core_wants_help "$1" && { _core_help "maint-install [HH:MM]" "schedule the daily safe-update job (24h, default 13:00)"; return 0; }
   local when="${1:-13:00}"
   if [[ "$when" != <0-23>:<0-59> ]]; then
     _core_usage "maint-install [HH:MM]   (24h, e.g. 13:00)"
@@ -116,10 +117,20 @@ EOF
 }
 
 maint-run() {
+  _core_wants_help "$1" && { _core_help "maint-run" "run the daily maintenance job now, in the foreground"; return 0; }
   echo "running $_MAINT_SH ..."
   /usr/bin/env bash "$_MAINT_SH"
 }
 maint-log() {
+  emulate -L zsh
+  _core_wants_help "$1" && { _core_help "maint-log [N|-f]" "show last N maintenance-log lines (default 50), or follow"; return 0; }
+  # Defensive input handling (mirrors serve/cdup/mkbak): a bad N must be rejected in
+  # Core's voice, not handed to `tail` to fail with a raw "tail: invalid number".
+  if [[ -n "$1" && "$1" != (-f|--follow) && "$1" != <1-> ]]; then
+    _core_err "maint-log: N must be a positive integer or -f/--follow (got '$1')"
+    _core_usage "maint-log [N|-f]"
+    return 1
+  fi
   [[ -r "$_MAINT_LOG" ]] || {
     echo "no log yet at $_MAINT_LOG"
     return 0
@@ -127,6 +138,7 @@ maint-log() {
   if [[ "$1" == (-f|--follow) ]]; then tail -f "$_MAINT_LOG"; else tail -n "${1:-50}" "$_MAINT_LOG"; fi
 }
 maint-status() {
+  _core_wants_help "$1" && { _core_help "maint-status" "when does the job next run / is it enabled"; return 0; }
   case "$(_maint_scheduler)" in
   systemd)
     systemctl --user list-timers dotfiles-maint.timer --no-pager 2>/dev/null
@@ -138,6 +150,7 @@ maint-status() {
   esac
 }
 maint-uninstall() {
+  _core_wants_help "$1" && { _core_help "maint-uninstall" "remove the scheduled maintenance job"; return 0; }
   case "$(_maint_scheduler)" in
   systemd)
     systemctl --user disable --now dotfiles-maint.timer 2>/dev/null
