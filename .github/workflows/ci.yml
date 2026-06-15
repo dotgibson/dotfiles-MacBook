@@ -34,8 +34,59 @@ permissions:
   contents: read
 
 jobs:
+  # Incremental CI: classify the changed paths so a core-only or repo-shell-only PR
+  # doesn't pay the full matrix. FAIL-SAFE — if the diff base can't be resolved (first
+  # push, force-push, shallow), or an infra path (.github/Makefile) changed, BOTH flags
+  # are true and nothing downstream is skipped. (paths-ignore already drops pure-docs runs.)
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.f.outputs.core }}
+      shell: ${{ steps.f.outputs.shell }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the diff base resolves
+      - id: f
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -uo pipefail
+          base=""
+          if [ "$EVENT" = pull_request ]; then
+            git fetch -q origin "$BASE_REF" 2>/dev/null && base="origin/$BASE_REF" || base=""
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            base="$BEFORE"
+          fi
+          if [ -z "$base" ] || ! git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+            echo "diff base unknown — running everything (safe default)"
+            { echo "core=true"; echo "shell=true"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$(git diff --name-only "$base" HEAD)"
+          echo "changed files vs $base:"; printf '%s\n' "$files" | sed 's/^/  /'
+          core=false shell=false
+          while IFS= read -r f; do
+            [ -z "$f" ] || case "$f" in
+            core/*) core=true ;;
+            .github/* | Makefile) core=true shell=true ;; # infra → full (fail-safe)
+            *.md | LICENSE) ;;                             # inert
+            *) shell=true ;;                               # repo-owned shell/zsh/config
+            esac
+          done <<EOF
+          $files
+          EOF
+          echo "→ core=$core shell=$shell"
+          { echo "core=$core"; echo "shell=$shell"; } >> "$GITHUB_OUTPUT"
+
   shell:
     name: shell lint
+    needs: changes
+    # repo-owned lint + the core/ advisory; run when repo shell OR vendored core changed.
+    if: needs.changes.outputs.shell == 'true' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     env:
       # shfmt is NOT a Core gate (Core deliberately doesn't enforce shfmt), so it has no
@@ -117,6 +168,8 @@ jobs:
 
   core-regression:
     name: core regression
+    needs: changes
+    if: needs.changes.outputs.core == 'true' # the vendored Core subtree (audit + behavioral)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -148,6 +201,8 @@ jobs:
   # the git-subtree-split marker resolves; skips gracefully if upstream is unreachable.
   verify-core:
     name: verify vendored core
+    needs: changes
+    if: needs.changes.outputs.core == 'true' # only meaningful when the subtree changed
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -194,6 +249,10 @@ jobs:
   # the entry points RUN on macOS, not that every package is present.
   macos:
     name: macos smoke
+    needs: changes
+    # Exercises the macOS entry points (bootstrap/clipboard/Brewfile) — relevant when repo
+    # shell OR vendored core changed. Skipped for, e.g., a workflow-only or inert change.
+    if: needs.changes.outputs.shell == 'true' || needs.changes.outputs.core == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
