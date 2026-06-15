@@ -27,6 +27,17 @@
 : "${UPDATE_CHECK_INTERVAL:=86400}"
 typeset -g _PKGUP_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/pkg-updates"
 
+# Accent colours for the nudge + welcome below. Use the truecolor hex ONLY when the
+# terminal advertises 24-bit ($COLORTERM); otherwise a 256-colour approximation, so a
+# 16/256-colour TTY (rescue shell, serial console — the bare boxes Core targets) gets a
+# sane colour instead of a raw 24-bit escape it would render as garbage. Same "degrade,
+# don't assume" rule as Core's NO_COLOR handling. These feed `print -P %F{…}`.
+if [[ "${COLORTERM:-}" == (24bit|truecolor) ]]; then
+  typeset -g _PKGUP_ACCENT='#7aa2f7' _PKGUP_MUTED='#565f89'
+else
+  typeset -g _PKGUP_ACCENT=75 _PKGUP_MUTED=244
+fi
+
 # privilege helper: sudo, else doas (Alpine), else run bare
 _pkgup_priv() {
   if command -v sudo >/dev/null 2>&1; then
@@ -96,6 +107,27 @@ _pkgup_count() {
   esac
 }
 
+# Best-effort LIST of upgradable package names — the names behind _pkgup_count's
+# number, used by `up` to PREVIEW what will change before you confirm. Same non-root,
+# no-system-mutation commands as _pkgup_count, emitting names instead of counting
+# (brew skips the network `brew update` the count does — the nudge already ran it).
+# Empty/unknown manager → nothing, so the caller just falls back to a name-only confirm.
+_pkgup_list() {
+  case "$(_pkgup_mgr)" in
+  brew) brew outdated --quiet 2>/dev/null ;;
+  pacman)
+    if command -v checkupdates >/dev/null 2>&1; then
+      checkupdates 2>/dev/null | awk '{print $1}'
+    else pacman -Qu 2>/dev/null | awk '{print $1}'; fi
+    ;;
+  dnf) dnf -q --refresh check-update 2>/dev/null | awk '/^[a-zA-Z0-9]/{print $1}' ;;
+  zypper) zypper -q list-updates 2>/dev/null | awk -F'|' '/^v /{gsub(/[[:space:]]/,"",$3); print $3}' ;;
+  apt) apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}' ;;
+  apk) apk list -u 2>/dev/null | awk '{print $1}' ;;
+  emerge) command -v eix >/dev/null 2>&1 && eix -u --only-names 2>/dev/null ;;
+  esac
+}
+
 # Background refresh → writes "<count>\n<epoch>" to the cache.
 _pkgup_refresh() {
   local n
@@ -108,7 +140,10 @@ _pkgup_refresh() {
 }
 
 # Manual force: `update-check`
-update-check() { _pkgup_refresh && _pkgup_notice; }
+update-check() {
+  _core_wants_help "$1" && { _core_help "update-check" "refresh the cached 'updates available' nudge now"; return 0; }
+  _pkgup_refresh && _pkgup_notice
+}
 
 # Print the one-line nudge from cache (instant; no work).
 _pkgup_notice() {
@@ -116,7 +151,7 @@ _pkgup_notice() {
   local count
   count="$(sed -n 1p "$_PKGUP_CACHE" 2>/dev/null)"
   [[ "$count" == <1-> ]] || return 0 # zsh numeric-range glob: only positive ints
-  print -P "%F{#7aa2f7}󰚰 ${count} update$([[ $count -ne 1 ]] && print s) available%f %F{#565f89}— run \`up\` to apply%f"
+  print -P "%F{$_PKGUP_ACCENT}󰚰 ${count} update$([[ $count -ne 1 ]] && print s) available%f %F{$_PKGUP_MUTED}— run \`up\` to apply%f"
 }
 
 # ── Startup hook: throttle + background the check, then show cached nudge ──────
@@ -158,7 +193,7 @@ _core_welcome() {
   # NO_CLOBBER; `|| return` bails (no greet) when we can't remember we did.
   mkdir -p "${stamp:h}" 2>/dev/null && : >|"$stamp" 2>/dev/null || return 0
   if [[ -z ${NO_COLOR:-} ]]; then
-    print -P "%F{#7aa2f7}👋 dotfiles Core loaded%f %F{#565f89}— run \`core-help\` for functions, keys & maintenance%f"
+    print -P "%F{$_PKGUP_ACCENT}👋 dotfiles Core loaded%f %F{$_PKGUP_MUTED}— run \`core-help\` for functions, keys & maintenance%f"
   else
     print -r -- "👋 dotfiles Core loaded — run \`core-help\` for functions, keys & maintenance"
   fi
@@ -178,8 +213,34 @@ if ((CORE_WELCOME)) && [[ -t 1 ]]; then _core_welcome; fi
 # ══════════════════════════════════════════════════════════════════════════════
 up() {
   emulate -L zsh
-  local yes=0
-  [[ "$1" == (-y|--yes) ]] && yes=1
+  # Help BEFORE anything else: without this, `up --help` fell through (not `-y`, so
+  # yes=0) and proceeded to actually apply updates — a help flag must never do that.
+  _core_wants_help "$1" && { _core_help "up [-y|--yes] [-n|--dry-run]" "apply package updates (interactive; -y auto-confirms where safe; -n only lists)"; return 0; }
+  # Parse EVERY argument (not just $1) so flag ORDER doesn't matter and an unknown
+  # flag or stray operand is REJECTED in Core's voice — matching the fail-closed
+  # parsers in scripts/*.sh. The old `[[ "$1" == … ]]` form silently ignored a
+  # second flag (`up -n -y`) and let a typo like `up --bogus` fall through to a real,
+  # privileged update. Usage errors return 1, the convention every Core VERB uses
+  # (serve/mkcd/cdup/…); the gate SCRIPTS use 2, but `up` is a verb, not a gate.
+  local yes=0 dry=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+    -y | --yes) yes=1 ;;
+    -n | --dry-run) dry=1 ;;
+    *)
+      _core_err "up: unexpected argument: $arg"
+      _core_usage "up [-y|--yes] [-n|--dry-run]"
+      return 1
+      ;;
+    esac
+  done
+  # -y (apply) and -n (inspect-only) are mutually exclusive — refuse the contradiction
+  # rather than silently letting one win.
+  if ((yes && dry)); then
+    _core_err "up: -y/--yes and -n/--dry-run are mutually exclusive"
+    _core_usage "up [-y|--yes] [-n|--dry-run]"
+    return 1
+  fi
   local y=()
   ((yes)) && y=(-y)
   local mgr
@@ -188,10 +249,38 @@ up() {
     _core_err "up: no supported package manager found"
     return 1
   fi
+  # Dry run: show what WOULD upgrade and exit 0, touching nothing — the non-destructive
+  # inspect that the count-only nudge and the (interactive-only) pre-confirm preview
+  # didn't offer. Uses the same non-root, no-mutation _pkgup_list as the preview below.
+  if ((dry)); then
+    local -a pending
+    pending=(${(f)"$(_pkgup_list 2>/dev/null)"})
+    if ((${#pending})); then
+      _core_ok "up: ${#pending} package$([[ ${#pending} -ne 1 ]] && echo s) upgradable via ${mgr}:"
+      print -rl -- "${(@)pending/#/    }"
+    else
+      _core_ok "up: nothing to upgrade (via ${mgr})"
+    fi
+    return 0
+  fi
   # Defensive pre-confirm (skipped by -y): name the manager BEFORE touching the
   # system, so `up` on the wrong box is a one-keystroke abort, not a surprise sync.
   # _core_confirm declines with no TTY, so `up` (sans -y) stays interactive-only.
   if ((! yes)); then
+    # Preview WHAT will change, not just the manager: the nudge already shows a count,
+    # so surface the names too — informed consent before a privileged, hard-to-undo
+    # sync. Best-effort + capped (a 300-package upgrade shouldn't scroll the confirm
+    # off-screen) and TTY-only (no point listing when the confirm below will decline).
+    if [[ -t 2 ]]; then
+      local -a pending
+      pending=(${(f)"$(_pkgup_list 2>/dev/null)"})
+      if ((${#pending})); then
+        local n=${#pending} cap=20
+        _core_warn "up: ${n} package$([[ $n -ne 1 ]] && echo s) upgradable via ${mgr}:"
+        print -u2 -rl -- "${(@)pending[1,cap]/#/    }"
+        ((n > cap)) && print -u2 -- "    … and $((n - cap)) more"
+      fi
+    fi
     _core_confirm "Apply updates with ${mgr}?" || {
       _core_warn "up: cancelled"
       return 1
