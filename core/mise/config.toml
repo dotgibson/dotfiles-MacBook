@@ -33,7 +33,7 @@ quiet = false
 # trusted_config_paths is machine-specific (the dotfiles dir differs per OS), so
 # keep only portable roots here and add the per-box path in a local override —
 # e.g. on the Mac: ['~/code', '~/dotfiles-MacBook'].
-trusted_config_paths = ['~/code']
+trusted_config_paths = ['~/dotfiles-MacBook']
 
 [alias]
 # Custom shorthand plugin sources, e.g.:
