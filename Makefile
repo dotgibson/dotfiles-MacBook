@@ -22,7 +22,8 @@ SHFMT_FLAGS := -i 2
 ZSH_FILES := zsh/zshenv zsh/zprofile zsh/zshrc os/macos.zsh
 
 .PHONY: help lint fmt fmt-check shellcheck syntax zsh-syntax check core-advisory \
-        tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core
+        tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core \
+        core-audit
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -51,6 +52,9 @@ zsh-syntax: ## `zsh -n` syntax gate on repo-owned zsh modules (skips if zsh abse
 core-advisory: ## Non-blocking shellcheck over vendored core/ (fixes land upstream)
 	@shellcheck $$(find core -name '*.sh') || \
 	  echo "(advisory) core/ findings above are fixed upstream in dotfiles-core"
+
+core-audit: ## Gate the vendored Core subtree with its OWN audit (manifest/exec-bits/syntax/config drift a subtree pull can introduce)
+	@cd core && ./scripts/audit-core.sh --quiet
 
 test: ## Run the vendored Core regression harness (self-skips without zsh)
 	@cd core && ./scripts/test-core.sh

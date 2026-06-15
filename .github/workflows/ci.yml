@@ -114,8 +114,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Install zsh + PyYAML
+        # zsh drives the behavioral suite; python3-yaml lets the audit's YAML-parse gate
+        # run for real instead of skipping (python3/tomllib/json are already on the runner).
+        run: sudo apt-get update && sudo apt-get install -y zsh python3-yaml
+
+      # Gate the VENDORED Core subtree with its own audit BEFORE the behavioral suite:
+      # a `git subtree pull` can introduce manifest↔filesystem drift, a lost exec bit, a
+      # zsh/bash syntax break, or a malformed toml/yaml/json — none of which `make test`
+      # (load-order + function units) looks at. The shellcheck/luacheck/markdownlint/
+      # actionlint/gitleaks/nvim sections skip gracefully here (those are gated in
+      # dotfiles-core's own CI); this leg's job is to catch VENDORING drift, which the
+      # manifest/exec-bit/syntax/config sections cover with just zsh + python.
+      - name: Audit the vendored Core subtree (drift gate)
+        run: make core-audit
 
       # Sources every Core zsh module in canonical order inside a hermetic shell
       # and exercises the pure functions (mkcd/cdup/mkbak/extract/…). Self-skips
