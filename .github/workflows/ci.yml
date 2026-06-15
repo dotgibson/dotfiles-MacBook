@@ -8,14 +8,26 @@ name: CI
 # surfaced by a non-blocking advisory step (fixes land in dotfiles-core).
 
 on:
+  # De-duplicated triggers: a PR'd branch previously ran CI TWICE (the `push` and the
+  # `pull_request` event fire for the same commit, and their github.ref differs so
+  # concurrency didn't collapse them). Now `push` is scoped to the default branch + tags
+  # (post-merge / release signal); everything else is gated by `pull_request`. Pure-docs
+  # changes skip the shell suite via paths-ignore.
   push:
-    branches: ["**"]
+    branches: [main]
+    tags: ["v*"]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
 
 # Incremental CI: a newer push to the same ref cancels the in-flight run rather
 # than letting a stale job burn minutes next to the fresh one.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -27,13 +39,37 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SHFMT_VERSION: "3.8.0"
+      # Pin shellcheck too (was an unpinned `apt-get install`): a distro/upstream bump
+      # could change findings and split "green locally / red in CI". Now every linter
+      # in this job is version-locked + cached, matching shfmt/actionlint.
+      SHELLCHECK_VERSION: "0.10.0"
     steps:
       - uses: actions/checkout@v4
 
-      # zsh is needed for `make zsh-syntax` (the repo-owned zsh modules have no
-      # .sh extension, so the bash gate never reached them).
-      - name: Install shellcheck + zsh
-        run: sudo apt-get update && sudo apt-get install -y shellcheck zsh
+      # zsh is needed for `make zsh-syntax` + the repo behavioral tests (the repo-owned
+      # zsh modules have no .sh extension, so the bash gate never reached them).
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Cache shellcheck (pinned)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/bin/shellcheck
+          key: shellcheck-${{ env.SHELLCHECK_VERSION }}-linux-x86_64
+
+      - name: Install shellcheck (pinned)
+        run: |
+          if [ ! -x /tmp/bin/shellcheck ]; then
+            mkdir -p /tmp/bin
+            curl -fsSL -o /tmp/sc.tar.xz \
+              "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+            tar -xJf /tmp/sc.tar.xz -C /tmp \
+              "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+            mv "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /tmp/bin/shellcheck
+            chmod +x /tmp/bin/shellcheck
+          fi
+          sudo install -m 0755 /tmp/bin/shellcheck /usr/local/bin/shellcheck
+          shellcheck --version
 
       # Cache the pinned shfmt binary so steady-state runs skip the release
       # download (keyed on the version → an upgrade busts the cache automatically).
@@ -65,6 +101,9 @@ jobs:
 
       - name: zsh -n (syntax)
         run: make zsh-syntax
+
+      - name: repo behavioral tests (bootstrap, loader, defaults)
+        run: make test-repo
 
       - name: core/ advisory (non-blocking)
         run: make core-advisory
@@ -110,3 +149,59 @@ jobs:
 
       - name: actionlint
         run: actionlint -color
+
+  # The lint/regression jobs above run on Ubuntu and never exercise the macOS
+  # execution path — the exact surface this repo OWNS. This job runs the real macOS
+  # code paths that Linux can't: the native clipboard (pbcopy/pbpaste), the Brewfile
+  # parse, and bootstrap/defaults under a genuine Darwin uname. It is intentionally
+  # install-free (no `brew bundle`, which would take many minutes) — it validates that
+  # the entry points RUN on macOS, not that every package is present.
+  macos:
+    name: macos smoke
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Native clipboard round-trip: Core's clip/clip-paste shell out to pbcopy/pbpaste
+      # on Darwin. Linux tests stub these, so a real-macOS quoting/exec bug in clip would
+      # otherwise ship undetected. (clip lives in vendored core/, but it RUNS here.)
+      - name: clipboard round-trip (pbcopy/pbpaste)
+        run: |
+          chmod +x core/bin/clip core/bin/clip-paste
+          msg="dotfiles-ci-$RANDOM"
+          printf '%s' "$msg" | core/bin/clip
+          got="$(core/bin/clip-paste)"
+          if [ "$got" != "$msg" ]; then
+            echo "clipboard round-trip mismatch: wrote '$msg', read '$got'" >&2
+            exit 1
+          fi
+          echo "clipboard round-trip OK ($msg)"
+
+      # Parse the Brewfile with the real brew (preinstalled on the runner). Catches a
+      # malformed Brewfile without the cost of installing every formula/cask.
+      - name: Brewfile parses
+        run: brew bundle list --file=Brewfile --all >/dev/null && echo "Brewfile OK"
+
+      # Lock-drift gate (B2): once Brewfile.lock.json is committed, fail if it's out of
+      # sync with the Brewfile. Until then, nudge to generate it (non-fatal) so the
+      # documented reproducibility promise becomes real on the next `brew bundle`.
+      - name: Brewfile.lock present / in sync
+        run: |
+          if [ -f Brewfile.lock.json ]; then
+            brew bundle check --file=Brewfile --verbose || {
+              echo "Brewfile.lock.json is out of sync — run 'brew bundle' and commit the lock" >&2
+              exit 1
+            }
+          else
+            echo "::warning::Brewfile.lock.json not committed yet — run 'brew bundle' once and commit it for reproducible installs"
+          fi
+
+      # Real-Darwin smoke of the entry points: the symlink plan (catches a dead link
+      # SOURCE, e.g. a renamed core file) and the defaults dry-run, both no-ops.
+      - name: bootstrap + defaults dry-run (no mutations)
+        run: |
+          ./bootstrap.sh --links-only --dry-run
+          bash macos/defaults.sh --dry-run >/dev/null
+
+      - name: repo behavioral tests (on real macOS)
+        run: make test-repo

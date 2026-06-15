@@ -1,9 +1,9 @@
 # dotfiles-MacBook/zsh/zshrc  →  ~/.config/zsh/.zshrc
 # ──────────────────────────────────────────────────────────────────────────────
 # Interactive shell. Sources the Core modules (+ the macOS os layer + any local
-# overrides) in the ONE correct order:
-#   tools → options → history → aliases → functions → fzf → bindings → plugins
-#         → op → maint → update → os → local
+# overrides) in the ONE correct order (matches the loop below and README):
+#   tools → options → history → aliases → git → functions → fzf → bindings
+#         → plugins → op → maint → update → os → local
 #
 # WHAT CHANGED (2026 refresh integration):
 #   • options.zsh + history.zsh are NEW Core modules that now own setopts, the

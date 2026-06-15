@@ -14,33 +14,54 @@
 # the whole run.
 set -uo pipefail
 
-BOLD=$(tput bold 2>/dev/null || echo "")
-RESET=$(tput sgr0 2>/dev/null || echo "")
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-BLUE="\033[0;34m"
-header() { echo -e "\n${BLUE}${BOLD}==> $1${RESET}"; }
-ok() { echo -e "  ${GREEN}✓ $1${RESET}"; }
+# Colour only on a real TTY with NO_COLOR unset — piping to a file or a CI log
+# otherwise captures raw `\033[…m` escapes (the `echo -e` calls below would emit them
+# unconditionally). Matches bootstrap.sh and the Core layer's output discipline.
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  BOLD=$(tput bold 2>/dev/null || echo "")
+  RESET=$(tput sgr0 2>/dev/null || echo "")
+  GREEN="\033[0;32m"
+  YELLOW="\033[0;33m"
+  BLUE="\033[0;34m"
+else
+  BOLD="" RESET="" GREEN="" YELLOW="" BLUE=""
+fi
+# Section + applied-key counters drive the end-of-run summary (U6) so a long
+# `defaults write` sweep ends with a tally + clear next-step, like bootstrap.sh —
+# not just trailing off after the last section.
+n_sections=0
+n_groups=0
+header() {
+  n_sections=$((n_sections + 1))
+  echo -e "\n${BLUE}${BOLD}==> $1${RESET}"
+}
+ok() {
+  n_groups=$((n_groups + 1))
+  echo -e "  ${GREEN}✓ $1${RESET}"
+}
 info() { echo -e "  ${YELLOW}• $1${RESET}"; }
 
 # ── dry-run: `--dry-run`/`-n` prints the intended changes and mutates nothing. ─
 # Implemented by SHADOWING the mutating commands, so the dozens of `defaults write`
 # calls below need no per-line edits — in dry mode each one just echoes what it
 # would do. (`set -e` is intentionally off, so a wrapper returning 0 changes nothing.)
+# Parse EVERY argument (not just $1) so combined/extra args are rejected cleanly
+# instead of silently ignored — matching bootstrap.sh's fail-closed parser (U8).
 DRY=0
-case "${1:-}" in
---dry-run | -n) DRY=1 ;;
-"") ;;
--h | --help)
-  echo "usage: defaults.sh [--dry-run|-n]   (no args = apply the preferences)"
-  exit 0
-  ;;
-*)
-  echo "defaults.sh: unknown argument: $1" >&2
-  echo "usage: defaults.sh [--dry-run|-n]" >&2
-  exit 2
-  ;;
-esac
+for arg in "$@"; do
+  case "$arg" in
+  --dry-run | -n) DRY=1 ;;
+  -h | --help)
+    echo "usage: defaults.sh [--dry-run|-n]   (no args = apply the preferences)"
+    exit 0
+    ;;
+  *)
+    echo "defaults.sh: unknown argument: $arg" >&2
+    echo "usage: defaults.sh [--dry-run|-n]" >&2
+    exit 2
+    ;;
+  esac
+done
 if ((DRY)); then
   header "DRY RUN — printing intended changes; the system is NOT modified"
   defaults() { if [[ "${1:-}" == write ]]; then echo "  would write: ${*:2}"; else command defaults "$@"; fi; }
@@ -195,4 +216,12 @@ for app in "Finder" "Dock" "SystemUIServer"; do
 done
 ok "Finder, Dock, SystemUIServer restarted"
 
-echo -e "\n${GREEN}${BOLD}Done.${RESET} ${YELLOW}Some changes need a logout/restart to fully apply.${RESET}\n"
+# ── summary — mirror bootstrap.sh: a tally + a clear, single next-step ──────────
+echo -e "\n${BLUE}${BOLD}==> summary${RESET}"
+if ((DRY)); then
+  echo -e "  ${GREEN}✓${RESET} dry run — ${n_sections} sections previewed, nothing changed"
+  echo -e "  ${YELLOW}•${RESET} re-run without --dry-run to apply"
+else
+  echo -e "  ${GREEN}✓${RESET} ${n_groups} preference groups applied across ${n_sections} sections"
+  echo -e "  ${YELLOW}•${RESET} some changes need a logout/restart to fully apply"
+fi
