@@ -99,10 +99,20 @@ if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
 else
   c_b='' c_g='' c_y='' c_r='' c_0=''
 fi
+# Glyphs + spinner frames degrade to ASCII when the locale is NOT UTF-8 — a C/POSIX
+# terminal (recovery boot, a stripped SSH env) renders the braille spinner and the ✓/•/✗
+# marks as mojibake otherwise. bash 3.2-safe lowercasing via `tr` (no ${x,,}); mirrors
+# Core's ui.zsh. The spinner below indexes SPIN_FRAMES by char (bash's locale-aware string
+# ops handle the multibyte braille in a UTF-8 locale; the ASCII set is single-byte).
+_lc="$(printf '%s' "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" | tr '[:upper:]' '[:lower:]')"
+case "$_lc" in
+*utf-8* | *utf8*) G_OK='✓' G_INFO='•' G_ERR='✗' SPIN_FRAMES='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;
+*) G_OK='ok' G_INFO='-' G_ERR='x' SPIN_FRAMES='-\|/' ;;
+esac
 say() { printf '%s==>%s %s\n' "$c_b" "$c_0" "$*"; }
-ok() { printf '  %s✓%s %s\n' "$c_g" "$c_0" "$*"; }
-info() { printf '  %s•%s %s\n' "$c_y" "$c_0" "$*"; }
-err() { printf '  %s✗%s %s\n' "$c_r" "$c_0" "$*" >&2; }
+ok() { printf '  %s%s%s %s\n' "$c_g" "$G_OK" "$c_0" "$*"; }
+info() { printf '  %s%s%s %s\n' "$c_y" "$G_INFO" "$c_0" "$*"; }
+err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
 
 # Run-summary counters. NB: bump with `n=$((n+1))`, never `((n++))` — under
 # `set -e`, a standalone `((n++))` evaluates to the OLD value and, when that's 0,
@@ -166,7 +176,7 @@ spin() {
     return $?
   }
   "$@" >"$out" 2>&1 &
-  local pid=$! frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+  local pid=$! frames="$SPIN_FRAMES" i=0
   # SIGINT during a spin: FORWARD the interrupt to the child (SIGINT, not the bare SIGTERM
   # used before — so a child that only traps ^C actually stops) and REAP it with `wait`
   # before handing off, so the work really halts instead of lingering. Then restore the
