@@ -23,6 +23,7 @@ NO_BREW=0
 RUN_DEFAULTS=0
 SET_SHELL=0
 DRY=0
+QUIET=0
 
 # usage() is a real function (heredoc) rather than `sed -n '2,18p' "$0"`: the old
 # form was coupled to header line numbers, so editing the banner silently drifted
@@ -37,10 +38,13 @@ bootstrap.sh — idempotent macOS provision + symlink wiring. Safe to re-run.
   ./bootstrap.sh --macos-defaults also run macos/defaults.sh (system prefs)
   ./bootstrap.sh --set-shell      make Homebrew zsh the login shell (chsh)
   ./bootstrap.sh --dry-run, -n    print every planned action; change nothing
+  ./bootstrap.sh --quiet, -q      show only CHANGES + the summary (quiet re-runs)
   ./bootstrap.sh -h, --help       show this help
 
 Flags combine: `./bootstrap.sh --links-only --dry-run` previews the symlink
-plan without touching your home directory.
+plan without touching your home directory. `--quiet` suppresses section headers
+and the per-file "already linked" lines, so a re-run prints only what actually
+changed — handy once you're set up and just re-syncing.
 EOF
 }
 
@@ -49,7 +53,7 @@ EOF
 # via _core_suggest, instead of a bare usage dump. Heuristic, no external deps:
 # compare HYPHEN-NORMALISED forms (so `--dryrun` ≈ `--dry-run`) and accept an exact
 # match, a prefix either way, or a shared 4+ char stem. Silent when nothing's close.
-KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --dry-run -n -h --help)
+KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --dry-run -n --quiet -q -h --help)
 suggest() {
   local in="${1#--}" f cand n=0
   [[ -z "$in" || "$in" == "$1" ]] && return 0 # only guess for --long typos
@@ -74,6 +78,7 @@ for a in "$@"; do case "$a" in
   --macos-defaults) RUN_DEFAULTS=1 ;;
   --set-shell) SET_SHELL=1 ;;
   --dry-run | -n) DRY=1 ;;
+  --quiet | -q) QUIET=1 ;;
   -h | --help)
     usage
     exit 0
@@ -109,8 +114,13 @@ case "$_lc" in
 *utf-8* | *utf8*) G_OK='✓' G_INFO='•' G_ERR='✗' SPIN_FRAMES='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;
 *) G_OK='ok' G_INFO='-' G_ERR='x' SPIN_FRAMES='-\|/' ;;
 esac
-say() { printf '%s==>%s %s\n' "$c_b" "$c_0" "$*"; }
+# Under --quiet, say() (section headers) and noop() (idempotent "already linked / present"
+# confirmations) fall silent, so a re-run prints only the CHANGES (info: linked/backed
+# up/seeded) + the summary. ok()/info()/err() — actual results, changes, and errors —
+# always print. The summary (print_summary) prints unconditionally regardless of --quiet.
+say() { ((QUIET)) || printf '%s==>%s %s\n' "$c_b" "$c_0" "$*"; }
 ok() { printf '  %s%s%s %s\n' "$c_g" "$G_OK" "$c_0" "$*"; }
+noop() { ((QUIET)) || ok "$@"; }
 info() { printf '  %s%s%s %s\n' "$c_y" "$G_INFO" "$c_0" "$*"; }
 err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
 
@@ -127,7 +137,9 @@ n_seeded=0
 # interrupt left you with no record of the partial state and no reminder that re-running
 # is safe. `$1` is an optional headline (e.g. "interrupted").
 print_summary() {
-  say "${1:-summary}"
+  # Always prints (bypasses the --quiet say() gate via a direct printf) — the tally is
+  # the whole point of a quiet run, so it must never be suppressed.
+  printf '%s==>%s %s\n' "$c_b" "$c_0" "${1:-summary}"
   ok "$n_linked linked · $n_backed backed up · $n_seeded seeded · $n_skipped skipped"
 }
 
@@ -229,7 +241,7 @@ link() { # link <src> <dest>
   # Idempotent fast path: already the correct symlink → report and move on. Makes
   # a re-run (and a --dry-run) honest about what's actually already wired.
   if [[ -L "$dest" && "$(readlink "$dest")" == "$src" ]]; then
-    ok "${dest/#"$HOME"/\~} (already linked)"
+    noop "${dest/#"$HOME"/\~} (already linked)"
     n_linked=$((n_linked + 1))
     return 0
   fi
@@ -263,7 +275,7 @@ link() { # link <src> <dest>
 seed() {
   local src="$1" dest="$2" note="$3"
   [[ -f "$src" && ! -e "$dest" ]] || {
-    ok "${dest/#"$HOME"/\~} present (or example missing) — left as-is"
+    noop "${dest/#"$HOME"/\~} present (or example missing) — left as-is"
     return 0
   }
   if ((DRY)); then
@@ -388,7 +400,7 @@ wire_links() {
       info "tpm clone failed — clone it manually, then run prefix+I in tmux"
     fi
   else
-    ok "tpm present"
+    noop "tpm present"
   fi
 
   say "neovim"
