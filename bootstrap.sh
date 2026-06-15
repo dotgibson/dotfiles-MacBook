@@ -309,7 +309,13 @@ provision() {
     eval "$(/opt/homebrew/bin/brew shellenv)"
   elif [[ -x /usr/local/bin/brew ]]; then eval "$(/usr/local/bin/brew shellenv)"; fi
   if ((!NO_BREW)) && [[ -f "$REPO/Brewfile" ]]; then
-    say "brew bundle (this can take a while)"
+    # Up-front scope so the longest, mostly-opaque step reads as BOUNDED work, not an
+    # open-ended hang: count the Brewfile entries (best-effort; falls back to "?" if the
+    # list query fails) and name the number before handing off to brew's own streaming
+    # output. `brew bundle list --all` enumerates every tap/brew/cask/mas line.
+    local n_pkgs
+    n_pkgs="$(brew bundle list --file="$REPO/Brewfile" --all 2>/dev/null | wc -l | tr -d ' ')"
+    say "brew bundle (${n_pkgs:-?} formulae/casks — this can take a while)"
     brew bundle --file="$REPO/Brewfile"
   else
     info "skipping brew bundle (--no-brew or no Brewfile yet)"
