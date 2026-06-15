@@ -1,14 +1,22 @@
 name: CI
 
-# Static-analysis gate for the repo-owned shell + the workflow itself.
-# Dotfiles can't be unit-tested, so shellcheck + shfmt + `bash -n` ARE the suite.
-# core/ is a vendored git-subtree (linted in dotfiles-core); a non-blocking
-# advisory step surfaces its findings without gating this repo.
+# Static-analysis gate for the repo-owned shell + the workflow itself, plus a
+# behavioral gate on the vendored Core layer. Dotfiles can't be unit-tested, so
+# shellcheck + shfmt + `bash -n`/`zsh -n` ARE the suite for repo-owned files; the
+# Core load-order + function tests (core/scripts/test-core.sh) catch the cross-
+# module breakage a `git subtree pull` can introduce. core/ static findings are
+# surfaced by a non-blocking advisory step (fixes land in dotfiles-core).
 
 on:
   push:
     branches: ["**"]
   pull_request:
+
+# Incremental CI: a newer push to the same ref cancels the in-flight run rather
+# than letting a stale job burn minutes next to the fresh one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -22,14 +30,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      # zsh is needed for `make zsh-syntax` (the repo-owned zsh modules have no
+      # .sh extension, so the bash gate never reached them).
+      - name: Install shellcheck + zsh
+        run: sudo apt-get update && sudo apt-get install -y shellcheck zsh
+
+      # Cache the pinned shfmt binary so steady-state runs skip the release
+      # download (keyed on the version → an upgrade busts the cache automatically).
+      - name: Cache shfmt (pinned)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/bin/shfmt
+          key: shfmt-${{ env.SHFMT_VERSION }}-linux-amd64
 
       - name: Install shfmt (pinned)
         run: |
-          curl -fsSL -o /tmp/shfmt \
-            "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_amd64"
-          sudo install -m 0755 /tmp/shfmt /usr/local/bin/shfmt
+          if [ ! -x /tmp/bin/shfmt ]; then
+            mkdir -p /tmp/bin
+            curl -fsSL -o /tmp/bin/shfmt \
+              "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_amd64"
+            chmod +x /tmp/bin/shfmt
+          fi
+          sudo install -m 0755 /tmp/bin/shfmt /usr/local/bin/shfmt
           shfmt --version
 
       - name: shellcheck
@@ -41,8 +63,26 @@ jobs:
       - name: bash -n (syntax)
         run: make syntax
 
+      - name: zsh -n (syntax)
+        run: make zsh-syntax
+
       - name: core/ advisory (non-blocking)
         run: make core-advisory
+
+  core-regression:
+    name: core regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      # Sources every Core zsh module in canonical order inside a hermetic shell
+      # and exercises the pure functions (mkcd/cdup/mkbak/extract/…). Self-skips
+      # the nvim sections (nvim not installed) and exits 0 on a bare box.
+      - name: Core load-order + function tests
+        run: make test
 
   actionlint:
     name: actionlint
@@ -52,12 +92,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache actionlint (pinned)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/bin/actionlint
+          key: actionlint-${{ env.ACTIONLINT_VERSION }}-linux-amd64
+
       - name: Install actionlint (pinned)
         run: |
-          curl -fsSL -o /tmp/actionlint.tgz \
-            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
-          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+          if [ ! -x /tmp/bin/actionlint ]; then
+            mkdir -p /tmp/bin
+            curl -fsSL -o /tmp/actionlint.tgz \
+              "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+            tar -xzf /tmp/actionlint.tgz -C /tmp/bin actionlint
+          fi
+          sudo install -m 0755 /tmp/bin/actionlint /usr/local/bin/actionlint
 
       - name: actionlint
         run: actionlint -color

@@ -29,3 +29,22 @@ repos:
     hooks:
       - id: shfmt
         args: [-i, "2", -d]
+
+  # ── Mirror the remaining CI gates so "passes pre-commit" == "passes CI" ──────
+  # CI also runs actionlint and `zsh -n`; without these two the local gate was a
+  # subset and a workflow/zsh break could pass pre-commit yet fail CI. These use
+  # the system binaries the Brewfile already installs (actionlint, zsh) — there's
+  # no pinned, toolchain-free pre-commit-managed binary for either.
+  - repo: local
+    hooks:
+      - id: actionlint
+        name: actionlint (GitHub Actions workflows)
+        entry: actionlint
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+      - id: zsh-syntax
+        name: zsh -n (repo-owned zsh modules)
+        entry: make zsh-syntax
+        language: system
+        pass_filenames: false
+        files: (\.zsh$|^zsh/)
