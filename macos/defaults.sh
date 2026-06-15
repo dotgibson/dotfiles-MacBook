@@ -23,6 +23,33 @@ header() { echo -e "\n${BLUE}${BOLD}==> $1${RESET}"; }
 ok() { echo -e "  ${GREEN}✓ $1${RESET}"; }
 info() { echo -e "  ${YELLOW}• $1${RESET}"; }
 
+# ── dry-run: `--dry-run`/`-n` prints the intended changes and mutates nothing. ─
+# Implemented by SHADOWING the mutating commands, so the dozens of `defaults write`
+# calls below need no per-line edits — in dry mode each one just echoes what it
+# would do. (`set -e` is intentionally off, so a wrapper returning 0 changes nothing.)
+DRY=0
+case "${1:-}" in
+--dry-run | -n) DRY=1 ;;
+"") ;;
+-h | --help)
+  echo "usage: defaults.sh [--dry-run|-n]   (no args = apply the preferences)"
+  exit 0
+  ;;
+*)
+  echo "defaults.sh: unknown argument: $1" >&2
+  echo "usage: defaults.sh [--dry-run|-n]" >&2
+  exit 2
+  ;;
+esac
+if ((DRY)); then
+  header "DRY RUN — printing intended changes; the system is NOT modified"
+  defaults() { if [[ "${1:-}" == write ]]; then echo "  would write: ${*:2}"; else command defaults "$@"; fi; }
+  killall() { echo "  would: killall $*"; }
+  chflags() { echo "  would: chflags $*"; }
+  mkdir() { echo "  would: mkdir $*"; }
+  osascript() { :; } # don't quit System Settings during a preview
+fi
+
 # Close System Settings so it can't override what we write
 osascript -e 'tell application "System Settings" to quit' >/dev/null 2>&1 || true
 
