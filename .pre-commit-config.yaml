@@ -48,3 +48,12 @@ repos:
         language: system
         pass_filenames: false
         files: (\.zsh$|^zsh/)
+      # Behavioral gate for the repo-owned scripts (bootstrap.sh, the zsh loader,
+      # macos/defaults.sh, the bootstrap completion). Hermetic + fast; mirrors the
+      # CI "repo behavioral tests" step so "passes pre-commit" == "passes CI".
+      - id: test-repo
+        name: repo behavioral tests
+        entry: make test-repo
+        language: system
+        pass_filenames: false
+        files: (^bootstrap\.sh$|^macos/defaults\.sh$|^zsh/|^os/|^completions/|^test/)

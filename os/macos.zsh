@@ -25,6 +25,20 @@ else  # bare fallback if os.zsh is sourced without Core's tools.zsh
   command -v ty >/dev/null 2>&1 && eval "$(ty generate-shell-completion zsh 2>/dev/null)"
 fi
 
+# ── repo-owned completions (bootstrap.sh) ─────────────────────────────────────
+# Core adds its completions dir to fpath BEFORE compinit (options.zsh), so compinit
+# auto-registers them. This macOS layer loads AFTER compinit, so add the repo's
+# completions dir to fpath and then explicitly autoload + compdef — compinit won't
+# re-scan fpath on its own. Resolve the dir relative to THIS file: %x = the sourced
+# path, :A follows the bootstrap symlink back to <repo>/os/macos.zsh, :h:h climbs to
+# the repo root, then /completions (the proven pattern from Core's options.zsh).
+_macos_compdir="${${(%):-%x}:A:h:h}/completions"
+if [[ -d "$_macos_compdir" ]] && (($+functions[compdef])); then
+  fpath=("$_macos_compdir" $fpath)
+  autoload -Uz _bootstrap 2>/dev/null && compdef _bootstrap bootstrap.sh ./bootstrap.sh
+fi
+unset _macos_compdir
+
 # ── macOS conveniences ────────────────────────────────────────────────────────
 alias localip='ipconfig getifaddr en0'                 # LAN IP on the primary interface
 alias flushdns='sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder'

@@ -44,6 +44,30 @@ plan without touching your home directory.
 EOF
 }
 
+# suggest <bad-flag> — print the nearest known flag as a "did you mean" hint, so a
+# typo (`--dryrun`, `--link-only`) gets the same contextual nudge Core's verbs give
+# via _core_suggest, instead of a bare usage dump. Heuristic, no external deps:
+# compare HYPHEN-NORMALISED forms (so `--dryrun` ≈ `--dry-run`) and accept an exact
+# match, a prefix either way, or a shared 4+ char stem. Silent when nothing's close.
+KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --dry-run -n -h --help)
+suggest() {
+  local in="${1#--}" f cand n=0
+  [[ -z "$in" || "$in" == "$1" ]] && return 0 # only guess for --long typos
+  in="${in//-/}"                              # normalise away hyphen placement (the usual slip)
+  for f in "${KNOWN_FLAGS[@]}"; do
+    [[ "$f" == --* ]] || continue
+    cand="${f#--}"
+    cand="${cand//-/}"
+    # shared leading-char count between the two normalised stems
+    n=0
+    while [[ "${in:n:1}" == "${cand:n:1}" && -n "${in:n:1}" ]]; do n=$((n + 1)); done
+    if [[ "$in" == "$cand" || "$in" == "$cand"* || "$cand" == "$in"* ]] || ((n >= 4)); then
+      printf '%s' "$f"
+      return 0
+    fi
+  done
+}
+
 for a in "$@"; do case "$a" in
   --links-only) LINKS_ONLY=1 ;;
   --no-brew) NO_BREW=1 ;;
@@ -56,16 +80,25 @@ for a in "$@"; do case "$a" in
     ;;
   *)
     echo "unknown flag: $a" >&2
+    s="$(suggest "$a")"
+    [[ -n "$s" ]] && echo "did you mean $s?" >&2
     usage >&2
     exit 2 # usage error (the convention the lint scripts use; 1 stays for real failures)
     ;;
   esac done
 
-c_b=$'\e[34m'
-c_g=$'\e[32m'
-c_y=$'\e[33m'
-c_r=$'\e[31m'
-c_0=$'\e[0m'
+# Colour only on a real TTY with NO_COLOR unset — otherwise `./bootstrap.sh | tee log`
+# (or a CI log) gets raw escape bytes. The whole Core layer guards output this way
+# (see core/zsh/ui.zsh); the installer now matches instead of emitting ANSI blindly.
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  c_b=$'\e[34m'
+  c_g=$'\e[32m'
+  c_y=$'\e[33m'
+  c_r=$'\e[31m'
+  c_0=$'\e[0m'
+else
+  c_b='' c_g='' c_y='' c_r='' c_0=''
+fi
 say() { printf '%s==>%s %s\n' "$c_b" "$c_0" "$*"; }
 ok() { printf '  %s✓%s %s\n' "$c_g" "$c_0" "$*"; }
 info() { printf '  %s•%s %s\n' "$c_y" "$c_0" "$*"; }
@@ -79,6 +112,26 @@ n_backed=0
 n_skipped=0
 n_seeded=0
 
+# print_summary — the run tally, factored out so the INT/TERM trap can show what was
+# already done if you Ctrl-C mid-run (a long brew bundle, say). Without this, an
+# interrupt left you with no record of the partial state and no reminder that re-running
+# is safe. `$1` is an optional headline (e.g. "interrupted").
+print_summary() {
+  say "${1:-summary}"
+  ok "$n_linked linked · $n_backed backed up · $n_seeded seeded · $n_skipped skipped"
+}
+
+# Graceful interrupt: report the partial run + reassure that bootstrap is idempotent
+# (so the fix is simply to re-run), then exit 130 (128+SIGINT) — the conventional code.
+on_interrupt() {
+  printf '\n' >&2
+  err "interrupted"
+  print_summary "partial summary (interrupted)" >&2
+  info "bootstrap is idempotent — re-run to finish where it left off" >&2
+  exit 130
+}
+trap on_interrupt INT TERM
+
 # run <cmd...> — execute, or (in --dry-run) just announce the mutation. For plain
 # commands only; pipes/redirections are guarded inline at their call site instead.
 run() {
@@ -89,12 +142,64 @@ run() {
   fi
 }
 
-[[ "$(uname -s)" == "Darwin" ]] || {
+# spin <label> <cmd...> — run an OPAQUE long step with a live spinner so the terminal
+# reads as progress, not a hang. Output is captured and shown ONLY on failure (a clean
+# run stays quiet; a broken one prints what went wrong). On a non-TTY (CI, piped) or in
+# --dry-run there's no animation: it just runs the command with output passing through,
+# so logs and the dry-run plan are unchanged. Returns the command's own exit status.
+spin() {
+  local label="$1"
+  shift
+  if ((DRY)); then
+    info "would run: $*"
+    return 0
+  fi
+  # No TTY (or NO_COLOR honoured for the frames) → run plainly, output passes through.
+  if [[ ! -t 1 ]]; then
+    info "$label…"
+    "$@"
+    return $?
+  fi
+  local out rc
+  out="$(mktemp -t bootstrap-spin.XXXXXX)" || {
+    "$@"
+    return $?
+  }
+  "$@" >"$out" 2>&1 &
+  local pid=$! frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+  # SIGINT during a spin: kill the child, restore the cursor, then hand off to the
+  # global interrupt handler (partial summary + exit 130) — so Ctrl-C reads as
+  # "interrupted", not the "failed" path the killed child would otherwise trigger.
+  trap 'kill "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
+  printf '\e[?25l' # hide cursor while spinning
+  while kill -0 "$pid" 2>/dev/null; do
+    printf '\r  %s%s%s %s' "$c_y" "${frames:i++%${#frames}:1}" "$c_0" "$label"
+    sleep 0.1
+  done
+  printf '\e[?25h\r\033[K' # restore cursor, return to col 0, clear the line
+  trap on_interrupt INT    # re-arm the normal interrupt handler
+  if wait "$pid"; then
+    rc=0
+    ok "$label"
+  else
+    rc=$?
+    err "$label — failed (exit $rc)"
+    sed 's/^/    /' "$out" >&2 # indent the captured output under the failure
+  fi
+  rm -f "$out"
+  return "$rc"
+}
+
+[[ "$(uname -s)" == "Darwin" || -n "${BOOTSTRAP_ALLOW_NON_DARWIN:-}" ]] || {
   err "this bootstrap is macOS-only"
+  info "set BOOTSTRAP_ALLOW_NON_DARWIN=1 to preview the plan elsewhere (with --dry-run)"
   exit 1
 }
+# A normal clone already CONTAINS core/ (it's a tracked subtree), so this only fires
+# when building the repo from scratch — say exactly what to run, don't just abort.
 [[ -d "$REPO/core" ]] || {
-  err "core/ subtree missing — run: git subtree add --prefix=core <dotfiles-core-url> main --squash"
+  err "core/ subtree missing — this should be present in a clone; if building fresh, run:"
+  info "git subtree add --prefix=core <dotfiles-core-url> main --squash"
   exit 1
 }
 
@@ -321,14 +426,12 @@ fi
 
 wire_links
 
-# mise tools
+# mise tools — install behind a spinner: it can churn for a while pulling runtimes,
+# and its raw output is noise unless it fails (spin shows the captured log only then).
 if command -v mise >/dev/null 2>&1; then
   say "mise install"
-  if ((DRY)); then
-    info "would run: mise install"
-  else
-    mise install || info "mise install hit an issue — run it manually later"
-  fi
+  spin "installing mise-managed tools" mise install ||
+    info "mise install hit an issue — run it manually later"
 fi
 
 # login shell (opt-in: changes your default shell)
@@ -347,8 +450,7 @@ elif [[ -f "$REPO/macos/defaults.sh" ]]; then
 fi
 
 # ── run summary ───────────────────────────────────────────────────────────────
-say "summary"
-ok "$n_linked linked · $n_backed backed up · $n_seeded seeded · $n_skipped skipped"
+print_summary "summary"
 if ((DRY)); then
   info "dry run — nothing above was actually changed; re-run without --dry-run to apply"
 else

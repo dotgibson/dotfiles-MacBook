@@ -22,7 +22,7 @@ SHFMT_FLAGS := -i 2
 ZSH_FILES := zsh/zshenv zsh/zprofile zsh/zshrc os/macos.zsh
 
 .PHONY: help lint fmt fmt-check shellcheck syntax zsh-syntax check core-advisory \
-        tools test bench bootstrap bootstrap-dry doctor sync-core
+        tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -54,6 +54,11 @@ core-advisory: ## Non-blocking shellcheck over vendored core/ (fixes land upstre
 
 test: ## Run the vendored Core regression harness (self-skips without zsh)
 	@cd core && ./scripts/test-core.sh
+
+test-repo: ## Run THIS repo's behavioral tests (bootstrap.sh, zsh loader, defaults.sh)
+	@./test/test-repo.sh
+
+test-all: test-repo test ## Run repo-owned tests + the vendored Core harness
 
 bench: ## Measure Core shell-startup cost (set CORE_BENCH_BUDGET_MS to gate)
 	@cd core && ./scripts/bench-core.sh

@@ -36,7 +36,8 @@ ssh/
 ```bash
 git clone <your-remote>/dotfiles-MacBook ~/dotfiles-MacBook
 cd ~/dotfiles-MacBook
-git subtree add --prefix=core <your-remote>/dotfiles-core main --squash   # one-time
+# core/ is a vendored subtree and is ALREADY present in a clone — no extra step.
+# (You only run `git subtree add --prefix=core …` when building this repo from scratch.)
 ./bootstrap.sh --links-only --dry-run   # preview the symlink plan (changes nothing)
 ./bootstrap.sh                 # Homebrew + brew bundle + symlinks
 exec zsh
@@ -91,22 +92,35 @@ locally and in CI:
 ```bash
 brew bundle            # installs the lint toolchain (see Brewfile "Dev: lint & format")
 make lint              # shellcheck + shfmt -d + bash -n + zsh -n   (what CI gates)
+make test-repo         # behavioral tests for THIS repo (bootstrap, zsh loader, defaults)
 make test              # vendored Core load-order + function tests (needs zsh)
+make test-all          # both of the above
 make fmt               # auto-format repo-owned bash in place
 make help              # list all targets (bootstrap, doctor, sync-core, …)
 pre-commit install     # optional: run the same gate at commit time
 ```
 
+`make test-repo` (in `test/test-repo.sh`) is hermetic and runs anywhere: it exercises
+`bootstrap.sh` (arg-parse, did-you-mean, dry-run no-op, output hygiene), the
+`zsh/zshrc` loader (sources in canonical order — not just `zsh -n`), the macOS
+completion wiring, and `macos/defaults.sh`. Every mutation is sandboxed; no real
+provision ever runs.
+
 The repo-owned **zsh** modules (`zsh/zshenv`, `zsh/zprofile`, `zsh/zshrc`,
 `os/macos.zsh`) have no `.sh` extension, so they're gated separately by
 `make zsh-syntax` (`zsh -n`), folded into `make lint`.
 
-- **CI** — `.github/workflows/ci.yml` runs `make {shellcheck,fmt-check,syntax,zsh-syntax}`,
-  a `core regression` job (`make test`), and `actionlint`, on every push/PR. Runs
-  cancel superseded ones (`concurrency`); tool versions (shfmt, actionlint) are
-  pinned and cached. `pre-commit` mirrors the same gates locally.
+- **CI** — `.github/workflows/ci.yml` runs the `shell lint` job
+  (`make {shellcheck,fmt-check,syntax,zsh-syntax,test-repo}`), a `core regression` job
+  (`make test`), a `macos smoke` job (clipboard round-trip, Brewfile parse, real-Darwin
+  bootstrap/defaults dry-run, `make test-repo`), and `actionlint`. Triggers are
+  de-duplicated (`push` on `main`/tags, `pull_request` elsewhere; docs-only changes skip
+  the shell suite) and superseded runs cancel (`concurrency`). **All** linters —
+  shellcheck, shfmt, actionlint — are version-pinned and cached. `pre-commit` mirrors
+  every gate locally.
 - **Reproducible installs** — commit the `Brewfile.lock.json` that `brew bundle`
-  generates; it pins exact package versions (see the Brewfile header).
+  generates; it pins exact package versions (see the Brewfile header). The `macos smoke`
+  job warns until the lock is committed, then fails on drift (`brew bundle check`).
 - **Style** — repo-owned bash is 2-space (`shfmt -i 2`); `.editorconfig` is the
   source of truth and `shfmt`/editors both read it.
 - **Scope** — `core/` is a vendored git-subtree from

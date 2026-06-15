@@ -1,0 +1,15 @@
+#compdef bootstrap.sh ./bootstrap.sh
+# Completion for dotfiles-MacBook's bootstrap.sh.
+#
+# Core ships completions for its own verbs on fpath BEFORE compinit (see
+# core/zsh/options.zsh). This file is repo-owned and lives in the macOS layer, which
+# loads AFTER compinit — so os/macos.zsh adds this dir to fpath and then explicitly
+# `autoload -Uz _bootstrap` + `compdef`s it. The flags mirror bootstrap.sh's parser;
+# each carries a one-line description so `bootstrap.sh -<tab>` is self-documenting.
+_arguments -s \
+  '(--links-only)--links-only[just (re)create symlinks, no installs]' \
+  '(--no-brew)--no-brew[symlinks + mise, skip Homebrew/brew bundle]' \
+  '(--macos-defaults)--macos-defaults[also run macos/defaults.sh (system prefs)]' \
+  '(--set-shell)--set-shell[make the Homebrew zsh the login shell (chsh)]' \
+  '(--dry-run -n)'{--dry-run,-n}'[print every planned action; change nothing]' \
+  '(- *)'{-h,--help}'[show help and exit]'
