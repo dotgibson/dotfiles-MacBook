@@ -139,18 +139,25 @@ else
 fi
 
 # ── D. macOS interactive layer + repo-owned completion ────────────────────────
+# Source the REAL os/macos.zsh (not a re-implementation) so its actual fpath/compdef
+# wiring — including the ${…:A:h:h}/completions path resolution — is what's under test.
+# The script is single-quoted and the temp dump path + repo root are passed as
+# positional args ($1/$2), so there is no nested bash/zsh substitution to get wrong.
+# compinit must run first (os.zsh guards on compdef); the auto-tmux exec at os.zsh's
+# tail self-skips here because stdout isn't a TTY (its `-t 1` guard is false).
 section "os/macos.zsh — sources clean & registers the bootstrap completion"
 if command -v zsh >/dev/null 2>&1; then
-  merr="$(zsh -f -c "
-    autoload -Uz compinit; compinit -u -d '$(mktemp -u)' >/dev/null 2>&1
-    fpath=('$REPO/completions' \$fpath)
-    autoload -Uz _bootstrap && compdef _bootstrap bootstrap.sh ./bootstrap.sh
-    (( \$+functions[_bootstrap] )) || { print 'no _bootstrap fn' >&2; exit 1; }
-    [[ -n \${_comps[bootstrap.sh]:-} ]] || { print 'bootstrap.sh not registered' >&2; exit 1; }
-  " 2>&1)"
+  oshome="$(mktemp -d)"
+  merr="$(ZDOTDIR="$oshome" zsh -f -c '
+    autoload -Uz compinit && compinit -u -d "$1" >/dev/null 2>&1
+    source "$2/os/macos.zsh"
+    (( $+functions[_bootstrap] )) || { print "_bootstrap not autoloaded by os/macos.zsh" >&2; exit 1; }
+    [[ -n ${_comps[bootstrap.sh]:-} ]] || { print "bootstrap.sh completion not registered" >&2; exit 1; }
+  ' zsh-test "$oshome/.zcompdump" "$REPO" 2>&1)"
   mrc=$?
-  assert_eq "_bootstrap completion loads & registers" 0 "$mrc"
-  [[ -n "$merr" ]] && no "completion registration produced output" "$merr"
+  assert_eq "os/macos.zsh sources clean & registers _bootstrap completion" 0 "$mrc"
+  [[ -n "$merr" ]] && no "sourcing os/macos.zsh produced unexpected output" "$merr"
+  rm -rf "$oshome"
 else
   skipt "zsh absent — skipping completion registration check"
 fi
