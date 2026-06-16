@@ -273,23 +273,14 @@ jobs:
           echo "clipboard round-trip OK ($msg)"
 
       # Parse the Brewfile with the real brew (preinstalled on the runner). Catches a
-      # malformed Brewfile without the cost of installing every formula/cask.
+      # malformed Brewfile without the cost of installing every formula/cask. This is the
+      # macOS Brewfile gate: Homebrew 4.x removed Brewfile.lock.json generation (and 6.x
+      # has no lock support at all), so there's no lockfile to gate on — `brew bundle check`
+      # would need the full toolchain installed, which this install-free job deliberately
+      # skips. The Brewfile itself is the committed source of truth; `make brew-check`
+      # verifies it on a real (provisioned) machine.
       - name: Brewfile parses
         run: brew bundle list --file=Brewfile --all >/dev/null && echo "Brewfile OK"
-
-      # Lock-drift gate (B2): once Brewfile.lock.json is committed, fail if it's out of
-      # sync with the Brewfile. Until then, nudge to generate it (non-fatal) so the
-      # documented reproducibility promise becomes real on the next `brew bundle`.
-      - name: Brewfile.lock present / in sync
-        run: |
-          if [ -f Brewfile.lock.json ]; then
-            brew bundle check --file=Brewfile --verbose || {
-              echo "Brewfile.lock.json is out of sync — run 'make brew-lock' (macOS) and commit the lock" >&2
-              exit 1
-            }
-          else
-            echo "::warning::Brewfile.lock.json not committed yet — run 'make brew-lock' on macOS and commit it for reproducible installs"
-          fi
 
       # Real-Darwin smoke of the entry points: the symlink plan (catches a dead link
       # SOURCE, e.g. a renamed core file) and the defaults dry-run, both no-ops.

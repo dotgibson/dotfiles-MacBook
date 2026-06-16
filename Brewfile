@@ -9,12 +9,13 @@
 # Offensive / pentest tooling intentionally does NOT live here — it lives in
 # dotfiles-Kali. Keep this box a clean dev/security-engineering environment.
 #
-# Reproducibility: `brew bundle` (which bootstrap.sh runs) writes a
-# Brewfile.lock.json pinning the exact formula/cask versions it resolved. COMMIT
-# that lock — it is tracked, not gitignored — so a machine provisioned weeks later
-# gets the same toolchain. This is the same supply-chain discipline the zsh
-# plugins (pinned SHAs in core/zsh/plugins.zsh) and the CI linters (pinned
-# shfmt/actionlint releases) already follow; the Brewfile was the one floating piece.
+# Reproducibility: THIS Brewfile is the committed source of truth. Homebrew 4.x
+# deprecated and 6.x removed `Brewfile.lock.json`, so there is no lockfile to pin
+# bottle hashes — brew installs the current bottle for each entry. Verify a machine
+# matches the spec with `make brew-check` (brew bundle check). Unlike the zsh plugins
+# (pinned SHAs in core/zsh/plugins.zsh) and the CI linters (pinned releases), brew
+# packages float by Homebrew's design; pin a specific one inline (e.g. `brew "foo@1.2"`)
+# only where a version genuinely matters.
 # ════════════════════════════════════════════════════════════════════════════
 
 # ── Taps ──────────────────────────────────────────────────────────────────────

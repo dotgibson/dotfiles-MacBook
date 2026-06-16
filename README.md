@@ -118,9 +118,10 @@ The repo-owned **zsh** modules (`zsh/zshenv`, `zsh/zprofile`, `zsh/zshrc`,
   the shell suite) and superseded runs cancel (`concurrency`). **All** linters —
   shellcheck, shfmt, actionlint — are version-pinned and cached. `pre-commit` mirrors
   every gate locally.
-- **Reproducible installs** — commit the `Brewfile.lock.json` that `brew bundle`
-  generates; it pins exact package versions (see the Brewfile header). The `macos smoke`
-  job warns until the lock is committed, then fails on drift (`brew bundle check`).
+- **Reproducible installs** — the committed `Brewfile` is the source of truth (Homebrew
+  6.x removed `Brewfile.lock.json`, so there's no lockfile to pin hashes). `make
+  brew-check` verifies every entry is installed on a provisioned machine; the `macos
+  smoke` job validates the `Brewfile` parses (`brew bundle list --all`).
 - **Style** — repo-owned bash is 2-space (`shfmt -i 2`); `.editorconfig` is the
   source of truth and `shfmt`/editors both read it.
 - **Scope** — `core/` is a vendored git-subtree from

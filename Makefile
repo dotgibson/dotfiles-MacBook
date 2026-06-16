@@ -23,7 +23,7 @@ ZSH_FILES := zsh/zshenv zsh/zprofile zsh/zshrc os/macos.zsh
 
 .PHONY: help lint fmt fmt-check shellcheck syntax zsh-syntax check core-advisory \
         tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core \
-        core-audit verify-core check-core-freshness core-lock brew-lock
+        core-audit verify-core check-core-freshness core-lock brew-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -85,10 +85,9 @@ test-all: test-repo test ## Run repo-owned tests + the vendored Core harness
 bench: ## Measure Core shell-startup cost (set CORE_BENCH_BUDGET_MS to gate)
 	@cd core && ./scripts/bench-core.sh
 
-brew-lock: ## Generate/refresh Brewfile.lock.json + stage it (run on macOS) — makes installs reproducible
-	@command -v brew >/dev/null 2>&1 || { echo "  brew not found — run this on macOS (the lock needs real bottle hashes)"; exit 1; }
-	@brew bundle --file=Brewfile           # installs missing formulae/casks AND (re)writes Brewfile.lock.json
-	@git add Brewfile.lock.json && echo "  staged Brewfile.lock.json — commit it; CI then gates it in-sync (macos job)"
+brew-check: ## Verify every Brewfile formula/cask is installed (the reproducibility gate; run on macOS)
+	@command -v brew >/dev/null 2>&1 || { echo "  brew not found — run this on macOS"; exit 1; }
+	@brew bundle check --file=Brewfile --verbose
 
 bootstrap: ## Install: symlinks + Homebrew + brew bundle (macOS)
 	@./bootstrap.sh
