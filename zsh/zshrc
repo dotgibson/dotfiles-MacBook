@@ -2,7 +2,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Interactive shell. Sources the Core modules (+ the macOS os layer + any local
 # overrides) in the ONE correct order (matches the loop below and README):
-#   tools → options → history → aliases → git → functions → fzf → bindings
+#   tools → ui -> options → history → aliases → git → functions → fzf → bindings
 #         → plugins → op → maint → update → os → local
 #
 # WHAT CHANGED (2026 refresh integration):
@@ -48,7 +48,7 @@
 # never touch the repo. `2>/dev/null`: on a read-only $ZSH_CFG, compile silently
 # no-ops and we just source the plain script.
 ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
-for _m in tools options history aliases git functions fzf bindings plugins op maint update os local; do
+for _m in tools ui options history aliases git functions fzf bindings plugins op maint update os local; do
   _f="$ZSH_CFG/$_m.zsh"
   [[ -r "$_f" ]] || continue
   # zcompile with NO trailing name args = script mode: it writes "$_f.zwc". (A

@@ -22,7 +22,8 @@ SHFMT_FLAGS := -i 2
 ZSH_FILES := zsh/zshenv zsh/zprofile zsh/zshrc os/macos.zsh
 
 .PHONY: help lint fmt fmt-check shellcheck syntax zsh-syntax check core-advisory \
-        tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core
+        tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core \
+        core-audit verify-core check-core-freshness brew-lock
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -52,6 +53,15 @@ core-advisory: ## Non-blocking shellcheck over vendored core/ (fixes land upstre
 	@shellcheck $$(find core -name '*.sh') || \
 	  echo "(advisory) core/ findings above are fixed upstream in dotfiles-core"
 
+core-audit: ## Gate the vendored Core subtree with its OWN audit (manifest/exec-bits/syntax/config drift a subtree pull can introduce)
+	@cd core && ./scripts/audit-core.sh --quiet
+
+verify-core: ## Assert vendored core/ is byte-for-byte upstream @ the recorded subtree-split (catches hand-edits + orphans the dir-level manifest misses)
+	@./test/verify-core.sh
+
+check-core-freshness: ## Is the vendored core/ behind upstream? (the nudge to run sync-core)
+	@./test/check-core-freshness.sh
+
 test: ## Run the vendored Core regression harness (self-skips without zsh)
 	@cd core && ./scripts/test-core.sh
 
@@ -62,6 +72,11 @@ test-all: test-repo test ## Run repo-owned tests + the vendored Core harness
 
 bench: ## Measure Core shell-startup cost (set CORE_BENCH_BUDGET_MS to gate)
 	@cd core && ./scripts/bench-core.sh
+
+brew-lock: ## Generate/refresh Brewfile.lock.json + stage it (run on macOS) — makes installs reproducible
+	@command -v brew >/dev/null 2>&1 || { echo "  brew not found — run this on macOS (the lock needs real bottle hashes)"; exit 1; }
+	@brew bundle --file=Brewfile           # installs missing formulae/casks AND (re)writes Brewfile.lock.json
+	@git add Brewfile.lock.json && echo "  staged Brewfile.lock.json — commit it; CI then gates it in-sync (macos job)"
 
 bootstrap: ## Install: symlinks + Homebrew + brew bundle (macOS)
 	@./bootstrap.sh

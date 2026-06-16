@@ -34,17 +34,75 @@ permissions:
   contents: read
 
 jobs:
-  shell:
-    name: shell lint
+  # Incremental CI: classify the changed paths so a core-only or repo-shell-only PR
+  # doesn't pay the full matrix. FAIL-SAFE — if the diff base can't be resolved (first
+  # push, force-push, shallow), or an infra path (.github/Makefile) changed, BOTH flags
+  # are true and nothing downstream is skipped. (paths-ignore already drops pure-docs runs.)
+  changes:
     runs-on: ubuntu-latest
-    env:
-      SHFMT_VERSION: "3.8.0"
-      # Pin shellcheck too (was an unpinned `apt-get install`): a distro/upstream bump
-      # could change findings and split "green locally / red in CI". Now every linter
-      # in this job is version-locked + cached, matching shfmt/actionlint.
-      SHELLCHECK_VERSION: "0.10.0"
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.f.outputs.core }}
+      shell: ${{ steps.f.outputs.shell }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the diff base resolves
+      - id: f
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -uo pipefail
+          base=""
+          if [ "$EVENT" = pull_request ]; then
+            git fetch -q origin "$BASE_REF" 2>/dev/null && base="origin/$BASE_REF" || base=""
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            base="$BEFORE"
+          fi
+          if [ -z "$base" ] || ! git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+            echo "diff base unknown — running everything (safe default)"
+            { echo "core=true"; echo "shell=true"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$(git diff --name-only "$base" HEAD)"
+          echo "changed files vs $base:"; printf '%s\n' "$files" | sed 's/^/  /'
+          core=false shell=false
+          while IFS= read -r f; do
+            [ -z "$f" ] || case "$f" in
+            core/*) core=true ;;
+            .github/* | Makefile) core=true shell=true ;; # infra → full (fail-safe)
+            *.md | LICENSE) ;;                             # inert
+            *) shell=true ;;                               # repo-owned shell/zsh/config
+            esac
+          done <<EOF
+          $files
+          EOF
+          echo "→ core=$core shell=$shell"
+          { echo "core=$core"; echo "shell=$shell"; } >> "$GITHUB_OUTPUT"
+
+  shell:
+    name: shell lint
+    needs: changes
+    # repo-owned lint + the core/ advisory; run when repo shell OR vendored core changed.
+    if: needs.changes.outputs.shell == 'true' || needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    env:
+      # shfmt is NOT a Core gate (Core deliberately doesn't enforce shfmt), so it has no
+      # entry in the vendored tool-versions.env and stays a literal here.
+      SHFMT_VERSION: "3.8.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      # Load the pinned linter versions from the VENDORED Core single source rather than
+      # hardcoding them here — they had already drifted (this repo pinned actionlint 1.7.7
+      # while Core moved to 1.7.8). SHELLCHECK_VERSION (+ others) now come from
+      # core/scripts/tool-versions.env, so a Core bump propagates on the next subtree pull
+      # instead of silently splitting "green in Core / red here". Must precede the cache
+      # step below, which keys on $SHELLCHECK_VERSION.
+      - name: Load pinned tool versions (vendored Core single source)
+        run: grep -E '^[A-Z0-9_]+=' core/scripts/tool-versions.env >> "$GITHUB_ENV"
 
       # zsh is needed for `make zsh-syntax` + the repo behavioral tests (the repo-owned
       # zsh modules have no .sh extension, so the bash gate never reached them).
@@ -110,12 +168,26 @@ jobs:
 
   core-regression:
     name: core regression
+    needs: changes
+    if: needs.changes.outputs.core == 'true' # the vendored Core subtree (audit + behavioral)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Install zsh + PyYAML
+        # zsh drives the behavioral suite; python3-yaml lets the audit's YAML-parse gate
+        # run for real instead of skipping (python3/tomllib/json are already on the runner).
+        run: sudo apt-get update && sudo apt-get install -y zsh python3-yaml
+
+      # Gate the VENDORED Core subtree with its own audit BEFORE the behavioral suite:
+      # a `git subtree pull` can introduce manifest↔filesystem drift, a lost exec bit, a
+      # zsh/bash syntax break, or a malformed toml/yaml/json — none of which `make test`
+      # (load-order + function units) looks at. The shellcheck/luacheck/markdownlint/
+      # actionlint/gitleaks/nvim sections skip gracefully here (those are gated in
+      # dotfiles-core's own CI); this leg's job is to catch VENDORING drift, which the
+      # manifest/exec-bit/syntax/config sections cover with just zsh + python.
+      - name: Audit the vendored Core subtree (drift gate)
+        run: make core-audit
 
       # Sources every Core zsh module in canonical order inside a hermetic shell
       # and exercises the pure functions (mkcd/cdup/mkbak/extract/…). Self-skips
@@ -123,13 +195,32 @@ jobs:
       - name: Core load-order + function tests
         run: make test
 
+  # Byte-for-byte integrity of the vendored subtree against upstream @ the recorded
+  # subtree-split commit — the backstop for drift the dir-granular manifest can't see
+  # (a hand-edited or orphaned file inside a manifested directory). Needs full history so
+  # the git-subtree-split marker resolves; skips gracefully if upstream is unreachable.
+  verify-core:
+    name: verify vendored core
+    needs: changes
+    if: needs.changes.outputs.core == 'true' # only meaningful when the subtree changed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the subtree commit history for the split marker
+      - name: Verify vendored core/ == upstream @ subtree-split
+        run: make verify-core
+
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
-    env:
-      ACTIONLINT_VERSION: "1.7.7"
     steps:
       - uses: actions/checkout@v4
+
+      # ACTIONLINT_VERSION from the vendored Core single source (was a literal 1.7.7 here,
+      # already behind Core's 1.7.8). Must precede the cache step, which keys on it.
+      - name: Load pinned tool versions (vendored Core single source)
+        run: grep -E '^[A-Z0-9_]+=' core/scripts/tool-versions.env >> "$GITHUB_ENV"
 
       - name: Cache actionlint (pinned)
         uses: actions/cache@v4
@@ -158,6 +249,10 @@ jobs:
   # the entry points RUN on macOS, not that every package is present.
   macos:
     name: macos smoke
+    needs: changes
+    # Exercises the macOS entry points (bootstrap/clipboard/Brewfile) — relevant when repo
+    # shell OR vendored core changed. Skipped for, e.g., a workflow-only or inert change.
+    if: needs.changes.outputs.shell == 'true' || needs.changes.outputs.core == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -189,11 +284,11 @@ jobs:
         run: |
           if [ -f Brewfile.lock.json ]; then
             brew bundle check --file=Brewfile --verbose || {
-              echo "Brewfile.lock.json is out of sync — run 'brew bundle' and commit the lock" >&2
+              echo "Brewfile.lock.json is out of sync — run 'make brew-lock' (macOS) and commit the lock" >&2
               exit 1
             }
           else
-            echo "::warning::Brewfile.lock.json not committed yet — run 'brew bundle' once and commit it for reproducible installs"
+            echo "::warning::Brewfile.lock.json not committed yet — run 'make brew-lock' on macOS and commit it for reproducible installs"
           fi
 
       # Real-Darwin smoke of the entry points: the symlink plan (catches a dead link

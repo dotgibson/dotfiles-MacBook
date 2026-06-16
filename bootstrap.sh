@@ -23,6 +23,7 @@ NO_BREW=0
 RUN_DEFAULTS=0
 SET_SHELL=0
 DRY=0
+QUIET=0
 
 # usage() is a real function (heredoc) rather than `sed -n '2,18p' "$0"`: the old
 # form was coupled to header line numbers, so editing the banner silently drifted
@@ -37,10 +38,13 @@ bootstrap.sh — idempotent macOS provision + symlink wiring. Safe to re-run.
   ./bootstrap.sh --macos-defaults also run macos/defaults.sh (system prefs)
   ./bootstrap.sh --set-shell      make Homebrew zsh the login shell (chsh)
   ./bootstrap.sh --dry-run, -n    print every planned action; change nothing
+  ./bootstrap.sh --quiet, -q      show only CHANGES + the summary (quiet re-runs)
   ./bootstrap.sh -h, --help       show this help
 
 Flags combine: `./bootstrap.sh --links-only --dry-run` previews the symlink
-plan without touching your home directory.
+plan without touching your home directory. `--quiet` suppresses section headers
+and the per-file "already linked" lines, so a re-run prints only what actually
+changed — handy once you're set up and just re-syncing.
 EOF
 }
 
@@ -49,7 +53,7 @@ EOF
 # via _core_suggest, instead of a bare usage dump. Heuristic, no external deps:
 # compare HYPHEN-NORMALISED forms (so `--dryrun` ≈ `--dry-run`) and accept an exact
 # match, a prefix either way, or a shared 4+ char stem. Silent when nothing's close.
-KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --dry-run -n -h --help)
+KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --dry-run -n --quiet -q -h --help)
 suggest() {
   local in="${1#--}" f cand n=0
   [[ -z "$in" || "$in" == "$1" ]] && return 0 # only guess for --long typos
@@ -74,6 +78,7 @@ for a in "$@"; do case "$a" in
   --macos-defaults) RUN_DEFAULTS=1 ;;
   --set-shell) SET_SHELL=1 ;;
   --dry-run | -n) DRY=1 ;;
+  --quiet | -q) QUIET=1 ;;
   -h | --help)
     usage
     exit 0
@@ -99,10 +104,25 @@ if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
 else
   c_b='' c_g='' c_y='' c_r='' c_0=''
 fi
-say() { printf '%s==>%s %s\n' "$c_b" "$c_0" "$*"; }
-ok() { printf '  %s✓%s %s\n' "$c_g" "$c_0" "$*"; }
-info() { printf '  %s•%s %s\n' "$c_y" "$c_0" "$*"; }
-err() { printf '  %s✗%s %s\n' "$c_r" "$c_0" "$*" >&2; }
+# Glyphs + spinner frames degrade to ASCII when the locale is NOT UTF-8 — a C/POSIX
+# terminal (recovery boot, a stripped SSH env) renders the braille spinner and the ✓/•/✗
+# marks as mojibake otherwise. bash 3.2-safe lowercasing via `tr` (no ${x,,}); mirrors
+# Core's ui.zsh. The spinner below indexes SPIN_FRAMES by char (bash's locale-aware string
+# ops handle the multibyte braille in a UTF-8 locale; the ASCII set is single-byte).
+_lc="$(printf '%s' "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" | tr '[:upper:]' '[:lower:]')"
+case "$_lc" in
+*utf-8* | *utf8*) G_OK='✓' G_INFO='•' G_ERR='✗' SPIN_FRAMES='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;
+*) G_OK='ok' G_INFO='-' G_ERR='x' SPIN_FRAMES='-\|/' ;;
+esac
+# Under --quiet, say() (section headers) and noop() (idempotent "already linked / present"
+# confirmations) fall silent, so a re-run prints only the CHANGES (info: linked/backed
+# up/seeded) + the summary. ok()/info()/err() — actual results, changes, and errors —
+# always print. The summary (print_summary) prints unconditionally regardless of --quiet.
+say() { ((QUIET)) || printf '%s==>%s %s\n' "$c_b" "$c_0" "$*"; }
+ok() { printf '  %s%s%s %s\n' "$c_g" "$G_OK" "$c_0" "$*"; }
+noop() { ((QUIET)) || ok "$@"; }
+info() { printf '  %s%s%s %s\n' "$c_y" "$G_INFO" "$c_0" "$*"; }
+err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
 
 # Run-summary counters. NB: bump with `n=$((n+1))`, never `((n++))` — under
 # `set -e`, a standalone `((n++))` evaluates to the OLD value and, when that's 0,
@@ -117,7 +137,9 @@ n_seeded=0
 # interrupt left you with no record of the partial state and no reminder that re-running
 # is safe. `$1` is an optional headline (e.g. "interrupted").
 print_summary() {
-  say "${1:-summary}"
+  # Always prints (bypasses the --quiet say() gate via a direct printf) — the tally is
+  # the whole point of a quiet run, so it must never be suppressed.
+  printf '%s==>%s %s\n' "$c_b" "$c_0" "${1:-summary}"
   ok "$n_linked linked · $n_backed backed up · $n_seeded seeded · $n_skipped skipped"
 }
 
@@ -154,11 +176,17 @@ spin() {
     info "would run: $*"
     return 0
   fi
-  # No TTY (or NO_COLOR honoured for the frames) → run plainly, output passes through.
+  # No TTY (CI, piped) → run plainly, output passes through; then emit a scannable
+  # done/failed marker so a log reads as discrete steps with outcomes, not a bare
+  # "label…" with no resolution (the TTY path below ends each step with ✓/✗ too).
   if [[ ! -t 1 ]]; then
     info "$label…"
-    "$@"
-    return $?
+    # Run inside `||` so a non-zero exit can't trip `set -e` before we capture rc and emit
+    # the marker — spin() may be called without an `|| handler` guard at the call site.
+    local rc=0
+    "$@" || rc=$?
+    if ((rc == 0)); then ok "$label"; else err "$label — failed (exit $rc)"; fi
+    return "$rc"
   fi
   local out rc
   out="$(mktemp -t bootstrap-spin.XXXXXX)" || {
@@ -166,18 +194,23 @@ spin() {
     return $?
   }
   "$@" >"$out" 2>&1 &
-  local pid=$! frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
-  # SIGINT during a spin: kill the child, restore the cursor, then hand off to the
-  # global interrupt handler (partial summary + exit 130) — so Ctrl-C reads as
-  # "interrupted", not the "failed" path the killed child would otherwise trigger.
-  trap 'kill "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
+  local pid=$! frames="$SPIN_FRAMES" i=0
+  # A signal during a spin: FORWARD it to the child (so a child that only traps ^C actually
+  # stops) and REAP with `wait` before handing off, so the work really halts instead of
+  # lingering; then restore the cursor and hand off to the global handler (partial summary
+  # + exit 130). We trap BOTH INT and TERM: the global trap handles TERM too, but it knows
+  # nothing about $pid and never restores the cursor — so a SIGTERM mid-spin (e.g. CI
+  # cancellation) would otherwise orphan the child and leave the cursor hidden. Mirrors
+  # Core's ui.zsh _core_spin (SIGINT-forward + wait).
+  trap 'kill -INT  "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
+  trap 'kill -TERM "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' TERM
   printf '\e[?25l' # hide cursor while spinning
   while kill -0 "$pid" 2>/dev/null; do
     printf '\r  %s%s%s %s' "$c_y" "${frames:i++%${#frames}:1}" "$c_0" "$label"
     sleep 0.1
   done
-  printf '\e[?25h\r\033[K' # restore cursor, return to col 0, clear the line
-  trap on_interrupt INT    # re-arm the normal interrupt handler
+  printf '\e[?25h\r\033[K'   # restore cursor, return to col 0, clear the line
+  trap on_interrupt INT TERM # re-arm the normal interrupt handlers
   if wait "$pid"; then
     rc=0
     ok "$label"
@@ -216,7 +249,7 @@ link() { # link <src> <dest>
   # Idempotent fast path: already the correct symlink → report and move on. Makes
   # a re-run (and a --dry-run) honest about what's actually already wired.
   if [[ -L "$dest" && "$(readlink "$dest")" == "$src" ]]; then
-    ok "${dest/#"$HOME"/\~} (already linked)"
+    noop "${dest/#"$HOME"/\~} (already linked)"
     n_linked=$((n_linked + 1))
     return 0
   fi
@@ -250,7 +283,7 @@ link() { # link <src> <dest>
 seed() {
   local src="$1" dest="$2" note="$3"
   [[ -f "$src" && ! -e "$dest" ]] || {
-    ok "${dest/#"$HOME"/\~} present (or example missing) — left as-is"
+    noop "${dest/#"$HOME"/\~} present (or example missing) — left as-is"
     return 0
   }
   if ((DRY)); then
@@ -280,7 +313,13 @@ provision() {
     eval "$(/opt/homebrew/bin/brew shellenv)"
   elif [[ -x /usr/local/bin/brew ]]; then eval "$(/usr/local/bin/brew shellenv)"; fi
   if ((!NO_BREW)) && [[ -f "$REPO/Brewfile" ]]; then
-    say "brew bundle (this can take a while)"
+    # Up-front scope so the longest, mostly-opaque step reads as BOUNDED work, not an
+    # open-ended hang: count the Brewfile entries (best-effort; falls back to "?" if the
+    # list query fails) and name the number before handing off to brew's own streaming
+    # output. `brew bundle list --all` enumerates every tap/brew/cask/mas line.
+    local n_pkgs
+    n_pkgs="$(brew bundle list --file="$REPO/Brewfile" --all 2>/dev/null | wc -l | tr -d ' ')"
+    say "brew bundle (${n_pkgs:-?} formulae/casks — this can take a while)"
     brew bundle --file="$REPO/Brewfile"
   else
     info "skipping brew bundle (--no-brew or no Brewfile yet)"
@@ -375,7 +414,7 @@ wire_links() {
       info "tpm clone failed — clone it manually, then run prefix+I in tmux"
     fi
   else
-    ok "tpm present"
+    noop "tpm present"
   fi
 
   say "neovim"
