@@ -284,7 +284,7 @@ jobs:
         run: |
           if [ -f Brewfile.lock.json ]; then
             brew bundle check --file=Brewfile --verbose || {
-              echo "Brewfile.lock.json is out of sync — run 'brew bundle' and commit the lock" >&2
+              echo "Brewfile.lock.json is out of sync — run 'make brew-lock' (macOS) and commit the lock" >&2
               exit 1
             }
           else

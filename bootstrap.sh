@@ -181,8 +181,10 @@ spin() {
   # "label…" with no resolution (the TTY path below ends each step with ✓/✗ too).
   if [[ ! -t 1 ]]; then
     info "$label…"
-    "$@"
-    local rc=$?
+    # Run inside `||` so a non-zero exit can't trip `set -e` before we capture rc and emit
+    # the marker — spin() may be called without an `|| handler` guard at the call site.
+    local rc=0
+    "$@" || rc=$?
     if ((rc == 0)); then ok "$label"; else err "$label — failed (exit $rc)"; fi
     return "$rc"
   fi
@@ -193,20 +195,22 @@ spin() {
   }
   "$@" >"$out" 2>&1 &
   local pid=$! frames="$SPIN_FRAMES" i=0
-  # SIGINT during a spin: FORWARD the interrupt to the child (SIGINT, not the bare SIGTERM
-  # used before — so a child that only traps ^C actually stops) and REAP it with `wait`
-  # before handing off, so the work really halts instead of lingering. Then restore the
-  # cursor and hand off to the global interrupt handler (partial summary + exit 130) — so
-  # Ctrl-C reads as "interrupted", not the "failed" path the killed child would trigger.
-  # This mirrors Core's ui.zsh _core_spin, which already does SIGINT-forward + wait.
-  trap 'kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
+  # A signal during a spin: FORWARD it to the child (so a child that only traps ^C actually
+  # stops) and REAP with `wait` before handing off, so the work really halts instead of
+  # lingering; then restore the cursor and hand off to the global handler (partial summary
+  # + exit 130). We trap BOTH INT and TERM: the global trap handles TERM too, but it knows
+  # nothing about $pid and never restores the cursor — so a SIGTERM mid-spin (e.g. CI
+  # cancellation) would otherwise orphan the child and leave the cursor hidden. Mirrors
+  # Core's ui.zsh _core_spin (SIGINT-forward + wait).
+  trap 'kill -INT  "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
+  trap 'kill -TERM "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' TERM
   printf '\e[?25l' # hide cursor while spinning
   while kill -0 "$pid" 2>/dev/null; do
     printf '\r  %s%s%s %s' "$c_y" "${frames:i++%${#frames}:1}" "$c_0" "$label"
     sleep 0.1
   done
-  printf '\e[?25h\r\033[K' # restore cursor, return to col 0, clear the line
-  trap on_interrupt INT    # re-arm the normal interrupt handler
+  printf '\e[?25h\r\033[K'    # restore cursor, return to col 0, clear the line
+  trap on_interrupt INT TERM # re-arm the normal interrupt handlers
   if wait "$pid"; then
     rc=0
     ok "$label"
