@@ -187,9 +187,6 @@ print_summary() {
 
 # Graceful interrupt: report the partial run + reassure that bootstrap is idempotent
 # (so the fix is simply to re-run), then exit 130 (128+SIGINT) — the conventional code.
-# shellcheck disable=SC2317  # reached via `trap on_interrupt INT TERM`, which shellcheck's
-# reachability analysis doesn't track (it flags this as dead code once the script has an
-# explicit top-level `exit 0`); the trap registrations below are the real call sites.
 on_interrupt() {
   printf '\n' >&2
   err "interrupted"
@@ -225,7 +222,11 @@ spin() {
   # done/failed marker so a log reads as discrete steps with outcomes, not a bare
   # "label…" with no resolution (the TTY path below ends each step with ✓/✗ too).
   if [[ ! -t 1 ]]; then
-    info "$label…"
+    # ${label} braced, NOT "$label…": bash 3.2 (macOS /bin/bash) slurps the trailing
+    # multibyte … into the variable NAME, looks up the unset `label…`, and under `set -u`
+    # aborts the whole run. This non-TTY spin path is only reached on a real apply (the mise
+    # install step), so it stayed hidden until the apply round-trip test exercised it.
+    info "${label}…"
     # Run inside `||` so a non-zero exit can't trip `set -e` before we capture rc and emit
     # the marker — spin() may be called without an `|| handler` guard at the call site.
     local rc=0
@@ -658,10 +659,3 @@ if ((JSON)); then
     "$_dry" "$n_linked" "$n_backed" "$n_seeded" "$n_skipped" "$n_removed" "$n_restored" \
     "$_tools_json" >&3
 fi
-
-# Explicit success. A completed run must report 0 regardless of the incidental exit status
-# of the last expression above — bash leaves $? as that expression's status, and on bash 3.2
-# (macOS) a trailing `if ((JSON)); then…` whose condition is false yields a non-zero $?,
-# so the script exited 1 after a fully successful --links-only apply. (set -e can't reach
-# here on failure — it would have aborted earlier — so this only ever stamps SUCCESS.)
-exit 0
