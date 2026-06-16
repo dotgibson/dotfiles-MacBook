@@ -156,7 +156,11 @@ confirm() {                      # confirm <prompt>  → 0 = proceed, non-zero =
     return
   fi
   local reply
-  read -r -p "$1 [y/N] " reply
+  # `|| true`: a bare EOF (Ctrl-D) makes read exit non-zero. Treat that as a safe DECLINE
+  # (empty reply → the test below is false) rather than risk aborting under set -e. (Every
+  # caller already invokes confirm in a tested `||`/`if` context, where set -e is suspended
+  # inside the function, but this makes the EOF→decline contract explicit and call-safe.)
+  read -r -p "$1 [y/N] " reply || true
   [[ "$reply" == [yY]* ]]
 }
 
@@ -183,6 +187,9 @@ print_summary() {
 
 # Graceful interrupt: report the partial run + reassure that bootstrap is idempotent
 # (so the fix is simply to re-run), then exit 130 (128+SIGINT) — the conventional code.
+# shellcheck disable=SC2317  # reached via `trap on_interrupt INT TERM`, which shellcheck's
+# reachability analysis doesn't track (it flags this as dead code once the script has an
+# explicit top-level `exit 0`); the trap registrations below are the real call sites.
 on_interrupt() {
   printf '\n' >&2
   err "interrupted"
@@ -651,3 +658,10 @@ if ((JSON)); then
     "$_dry" "$n_linked" "$n_backed" "$n_seeded" "$n_skipped" "$n_removed" "$n_restored" \
     "$_tools_json" >&3
 fi
+
+# Explicit success. A completed run must report 0 regardless of the incidental exit status
+# of the last expression above — bash leaves $? as that expression's status, and on bash 3.2
+# (macOS) a trailing `if ((JSON)); then…` whose condition is false yields a non-zero $?,
+# so the script exited 1 after a fully successful --links-only apply. (set -e can't reach
+# here on failure — it would have aborted earlier — so this only ever stamps SUCCESS.)
+exit 0
