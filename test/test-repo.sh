@@ -125,7 +125,9 @@ mkdir -p "$ahome/.config/tmux/plugins/tpm"
 printf '#!/bin/sh\nexit 0\n' >"$abin/mise"
 chmod +x "$abin/mise"
 OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --no-brew --links-only 2>&1)"
-assert_eq "apply (--no-brew --links-only) exits 0" 0 "$?"
+arc=$?
+((arc == 0)) || printf '%s\n' "$OUT" | sed 's/^/    [apply diag] /' >&2 # surface where it stopped
+assert_eq "apply (--no-brew --links-only) exits 0" 0 "$arc"
 for l in .zshenv .config/zsh/.zshrc .config/starship.toml .config/nvim .local/bin/clip; do
   tgt="$(readlink "$ahome/$l" 2>/dev/null || true)"
   case "$tgt" in
@@ -139,7 +141,9 @@ else
   no "apply seeded local.gitconfig as a real file" "missing or a symlink"
 fi
 OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --no-brew --links-only 2>&1)"
-assert_eq "re-apply exits 0 (idempotent)" 0 "$?"
+arc=$?
+((arc == 0)) || printf '%s\n' "$OUT" | sed 's/^/    [re-apply diag] /' >&2
+assert_eq "re-apply exits 0 (idempotent)" 0 "$arc"
 assert_contains "re-apply reports an already-linked file" "$OUT" "already linked"
 HOME="$ahome" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall >/dev/null 2>&1
 if [[ -L "$ahome/.zshenv" ]]; then no "apply→uninstall round-trip removes the links" "still a link"; else ok "apply→uninstall round-trip removes the links"; fi
