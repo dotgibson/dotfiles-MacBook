@@ -46,5 +46,22 @@
 # self-healing on edit/pull; .zwc files stay in $ZSH_CFG, never the repo.)
 ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
 _CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update os local)
-source "$ZSH_CFG/loader.zsh"
+# Prefer the installed runtime symlink ($ZSH_CFG/loader.zsh). FALLBACK to the vendored copy
+# via this file's OWN resolved path, because a plain `git pull` updates this (symlinked)
+# .zshrc to reference loader.zsh BEFORE the user re-runs `./bootstrap.sh --links-only` that
+# creates the symlink — and without a fallback every interactive shell would then start with
+# NO Core modules. (Before B12 the inline loop skipped missing modules one-by-one; the
+# single vendored loader is all-or-nothing, so it needs this guard.)
+if [[ -r "$ZSH_CFG/loader.zsh" ]]; then
+  source "$ZSH_CFG/loader.zsh"
+else
+  _zshrc_self="${${(%):-%N}:A}" # resolved real path of THIS sourced file (<repo>/zsh/zshrc)
+  if [[ -r "${_zshrc_self:h:h}/core/zsh/loader.zsh" ]]; then
+    source "${_zshrc_self:h:h}/core/zsh/loader.zsh"
+    print -u2 -- "zshrc: loader.zsh not linked yet — used the repo copy. Run ./bootstrap.sh --links-only to (re)link Core."
+  else
+    print -u2 -- "zshrc: loader.zsh not found — run ./bootstrap.sh --links-only (Core modules not loaded)."
+  fi
+  unset _zshrc_self
+fi
 unset _CORE_MODULES

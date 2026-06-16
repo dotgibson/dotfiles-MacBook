@@ -62,15 +62,17 @@ verify-core: ## Assert vendored core/ is byte-for-byte upstream @ the recorded s
 check-core-freshness: ## Is the vendored core/ behind upstream? (the nudge to run sync-core)
 	@./test/check-core-freshness.sh
 
-core-lock: ## Regenerate core.lock from the vendored subtree-split (run after a MANUAL subtree pull; sync-core writes it automatically)
+core-lock: ## Regenerate core.lock from the vendored subtree-split (after a MANUAL subtree pull; CORE_BRANCH overrides the recorded branch; sync-core writes it automatically)
 	@split="$$(git log --grep='git-subtree-dir: core' -n1 --format='%b' 2>/dev/null \
 	  | sed -n 's/^[[:space:]]*git-subtree-split:[[:space:]]*//p' | head -n1)"; \
 	 [ -n "$$split" ] || { echo "  core-lock: no git-subtree-split marker (not a subtree checkout?)" >&2; exit 1; }; \
 	 ver="$$(tr -d '[:space:]' < core/core.version 2>/dev/null || echo unknown)"; \
+	 branch="$${CORE_BRANCH:-$$(sed -n 's/^core_branch=//p' core.lock 2>/dev/null | head -n1)}"; \
+	 branch="$${branch:-main}"; \
 	 { echo "# GENERATED — vendored Core provenance (B1). Regenerate with: make core-lock"; \
-	   echo "core_version=$$ver"; echo "core_sha=$$split"; echo "core_branch=main"; } > core.lock; \
+	   echo "core_version=$$ver"; echo "core_sha=$$split"; echo "core_branch=$$branch"; } > core.lock; \
 	 git add core.lock; \
-	 echo "  wrote core.lock → $$(echo "$$split" | cut -c1-12) (v$$ver) — commit it"
+	 echo "  wrote core.lock → $$(echo "$$split" | cut -c1-12) (v$$ver, $$branch) — commit it"
 
 test: ## Run the vendored Core regression harness (self-skips without zsh)
 	@cd core && ./scripts/test-core.sh
