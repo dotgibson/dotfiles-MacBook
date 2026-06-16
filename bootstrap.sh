@@ -22,6 +22,7 @@ LINKS_ONLY=0
 NO_BREW=0
 RUN_DEFAULTS=0
 SET_SHELL=0
+UNINSTALL=0
 DRY=0
 QUIET=0
 
@@ -37,6 +38,7 @@ bootstrap.sh — idempotent macOS provision + symlink wiring. Safe to re-run.
   ./bootstrap.sh --no-brew        symlinks + mise, skip Homebrew/brew bundle
   ./bootstrap.sh --macos-defaults also run macos/defaults.sh (system prefs)
   ./bootstrap.sh --set-shell      make Homebrew zsh the login shell (chsh)
+  ./bootstrap.sh --uninstall      remove Core symlinks + restore backed-up files
   ./bootstrap.sh --dry-run, -n    print every planned action; change nothing
   ./bootstrap.sh --quiet, -q      show only CHANGES + the summary (quiet re-runs)
   ./bootstrap.sh -h, --help       show this help
@@ -44,7 +46,8 @@ bootstrap.sh — idempotent macOS provision + symlink wiring. Safe to re-run.
 Flags combine: `./bootstrap.sh --links-only --dry-run` previews the symlink
 plan without touching your home directory. `--quiet` suppresses section headers
 and the per-file "already linked" lines, so a re-run prints only what actually
-changed — handy once you're set up and just re-syncing.
+changed — handy once you're set up and just re-syncing. `--uninstall --dry-run`
+previews exactly what an uninstall would remove and restore, changing nothing.
 EOF
 }
 
@@ -53,7 +56,7 @@ EOF
 # via _core_suggest, instead of a bare usage dump. Heuristic, no external deps:
 # compare HYPHEN-NORMALISED forms (so `--dryrun` ≈ `--dry-run`) and accept an exact
 # match, a prefix either way, or a shared 4+ char stem. Silent when nothing's close.
-KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --dry-run -n --quiet -q -h --help)
+KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --uninstall --dry-run -n --quiet -q -h --help)
 suggest() {
   local in="${1#--}" f cand n=0
   [[ -z "$in" || "$in" == "$1" ]] && return 0 # only guess for --long typos
@@ -77,6 +80,7 @@ for a in "$@"; do case "$a" in
   --no-brew) NO_BREW=1 ;;
   --macos-defaults) RUN_DEFAULTS=1 ;;
   --set-shell) SET_SHELL=1 ;;
+  --uninstall) UNINSTALL=1 ;;
   --dry-run | -n) DRY=1 ;;
   --quiet | -q) QUIET=1 ;;
   -h | --help)
@@ -92,28 +96,34 @@ for a in "$@"; do case "$a" in
     ;;
   esac done
 
-# Colour only on a real TTY with NO_COLOR unset — otherwise `./bootstrap.sh | tee log`
-# (or a CI log) gets raw escape bytes. The whole Core layer guards output this way
-# (see core/zsh/ui.zsh); the installer now matches instead of emitting ANSI blindly.
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-  c_b=$'\e[34m'
-  c_g=$'\e[32m'
-  c_y=$'\e[33m'
-  c_r=$'\e[31m'
-  c_0=$'\e[0m'
+# Palette + glyphs now come from the VENDORED shared bash UX lib (core/lib/ux.sh) — ONE
+# definition across Core's bash layer instead of a hand-rolled copy here (B5). It's present
+# after a Core sync; until then (or if it's ever absent) fall back to the inline copy below,
+# which applies the SAME rule, so behaviour is byte-identical either way. Colour only on a
+# real TTY with NO_COLOR unset; glyphs degrade to ASCII off a UTF-8 locale (a recovery boot
+# / stripped SSH env would otherwise render the braille spinner + ✓/✗ as mojibake).
+if [[ -r "$REPO/core/lib/ux.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "$REPO/core/lib/ux.sh"
+  c_b=$UX_BLU c_g=$UX_GRN c_y=$UX_YEL c_r=$UX_RED c_0=$UX_RST
+  G_OK=$UX_OK G_INFO=$UX_INFO G_ERR=$UX_ERR SPIN_FRAMES=$UX_SPIN_FRAMES
 else
-  c_b='' c_g='' c_y='' c_r='' c_0=''
+  if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    c_b=$'\e[34m'
+    c_g=$'\e[32m'
+    c_y=$'\e[33m'
+    c_r=$'\e[31m'
+    c_0=$'\e[0m'
+  else
+    c_b='' c_g='' c_y='' c_r='' c_0=''
+  fi
+  # bash 3.2-safe lowercasing via `tr` (no ${x,,}); mirrors Core's ui.zsh/ux.sh.
+  _lc="$(printf '%s' "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" | tr '[:upper:]' '[:lower:]')"
+  case "$_lc" in
+  *utf-8* | *utf8*) G_OK='✓' G_INFO='•' G_ERR='✗' SPIN_FRAMES='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;
+  *) G_OK='ok' G_INFO='-' G_ERR='x' SPIN_FRAMES='-\|/' ;;
+  esac
 fi
-# Glyphs + spinner frames degrade to ASCII when the locale is NOT UTF-8 — a C/POSIX
-# terminal (recovery boot, a stripped SSH env) renders the braille spinner and the ✓/•/✗
-# marks as mojibake otherwise. bash 3.2-safe lowercasing via `tr` (no ${x,,}); mirrors
-# Core's ui.zsh. The spinner below indexes SPIN_FRAMES by char (bash's locale-aware string
-# ops handle the multibyte braille in a UTF-8 locale; the ASCII set is single-byte).
-_lc="$(printf '%s' "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" | tr '[:upper:]' '[:lower:]')"
-case "$_lc" in
-*utf-8* | *utf8*) G_OK='✓' G_INFO='•' G_ERR='✗' SPIN_FRAMES='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;
-*) G_OK='ok' G_INFO='-' G_ERR='x' SPIN_FRAMES='-\|/' ;;
-esac
 # Under --quiet, say() (section headers) and noop() (idempotent "already linked / present"
 # confirmations) fall silent, so a re-run prints only the CHANGES (info: linked/backed
 # up/seeded) + the summary. ok()/info()/err() — actual results, changes, and errors —
@@ -131,6 +141,8 @@ n_linked=0
 n_backed=0
 n_skipped=0
 n_seeded=0
+n_removed=0  # --uninstall: Core symlinks removed
+n_restored=0 # --uninstall: backups restored over the removed link
 
 # print_summary — the run tally, factored out so the INT/TERM trap can show what was
 # already done if you Ctrl-C mid-run (a long brew bundle, say). Without this, an
@@ -452,6 +464,91 @@ wire_links() {
     info "no ssh/config in repo yet — skipping"
   fi
 }
+
+# ── uninstall: reverse the symlink wiring + restore backups (B4) ──────────────
+# bootstrap backs a real file up to <dest>.pre-dotfiles.<ts> before linking, but there was
+# no way BACK. This reverses it, idempotently and safely: it removes a dest ONLY when it's a
+# symlink pointing INTO this repo (never a real file or a foreign link), then restores the
+# most recent .pre-dotfiles.* backup if one exists. --dry-run previews every action. It does
+# NOT uninstall Homebrew/packages or revert the login shell — just the symlinks this script
+# created (the destructive, hard-to-remember half).
+unlink_dest() { # unlink_dest <dest>
+  local dest="$1"
+  if [[ -L "$dest" ]]; then
+    local tgt
+    tgt="$(readlink "$dest")"
+    if [[ "$tgt" == "$REPO"/* ]]; then
+      if ((DRY)); then
+        info "would remove symlink: ${dest/#"$HOME"/\~}"
+      else
+        rm -f "$dest"
+        ok "removed ${dest/#"$HOME"/\~}"
+      fi
+      n_removed=$((n_removed + 1))
+    else
+      noop "skip (not ours): ${dest/#"$HOME"/\~}"
+      return 0
+    fi
+  fi
+  # Never restore a backup OVER an existing real file/dir. We only restore into a slot we
+  # just emptied (our symlink was removed above) or one that's now absent — if a REAL file
+  # sits at $dest, it's the user's own (they may have replaced our link with it), so leave
+  # it untouched rather than clobber it with a stale backup. (In --dry-run our symlink isn't
+  # actually removed, so $dest is still a symlink here and this guard correctly lets the
+  # restore PREVIEW through.)
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    noop "skip restore (real file present, not ours): ${dest/#"$HOME"/\~}"
+    return 0
+  fi
+  # Restore the most recent backup, if any. The backup suffix is a zero-padded
+  # YYYYMMDD-HHMMSS stamp, so a lexical sort IS chronological — the LAST glob match is the
+  # newest. nullglob makes a no-match yield an empty array (not the literal pattern).
+  local newest=""
+  local -a baks
+  shopt -s nullglob
+  baks=("$dest".pre-dotfiles.*)
+  shopt -u nullglob
+  ((${#baks[@]})) && newest="${baks[${#baks[@]} - 1]}"
+  if [[ -n "$newest" && -e "$newest" ]]; then
+    if ((DRY)); then
+      info "would restore backup: ${newest/#"$HOME"/\~} → ${dest/#"$HOME"/\~}"
+    else
+      mv "$newest" "$dest"
+      info "restored ${dest/#"$HOME"/\~} from backup"
+    fi
+    n_restored=$((n_restored + 1))
+  fi
+}
+uninstall() {
+  local CFG="$HOME/.config"
+  say "Uninstall — removing Core symlinks + restoring backups (Homebrew/packages untouched)"
+  ((DRY)) && say "DRY RUN — nothing will be changed; printing the plan only"
+  # The same destinations wire_links creates — the per-module Core zsh links plus the
+  # fixed set. Kept in one list here so an uninstall mirrors the install exactly.
+  local -a dests=(
+    "$HOME/.local/bin/clip" "$HOME/.local/bin/clip-paste"
+    "$CFG/zsh/os.zsh" "$HOME/.zshenv" "$CFG/zsh/.zprofile" "$CFG/zsh/.zshrc"
+    "$CFG/starship.toml"
+    "$CFG/tmux/tmux.conf" "$CFG/tmux/tmux.reset.conf" "$CFG/tmux/scripts" "$CFG/tmux/os.conf"
+    "$CFG/nvim"
+    "$HOME/.gitconfig" "$CFG/git/os.gitconfig" "$CFG/git/ignore"
+    "$CFG/mise/config.toml" "$CFG/ghostty/config" "$HOME/.ssh/config"
+  )
+  local f
+  for f in "$REPO"/core/zsh/*.zsh; do dests+=("$CFG/zsh/$(basename "$f")"); done
+  local d
+  for d in "${dests[@]}"; do unlink_dest "$d"; done
+  printf '%s==>%s %s\n' "$c_b" "$c_0" "uninstall summary"
+  ok "$n_removed removed · $n_restored restored"
+  ((DRY)) && info "dry run — nothing was changed; re-run without --dry-run to apply"
+  info "left in place: Homebrew + packages, your login shell, and ~/.config/{zsh/local.zsh,git/local.gitconfig}"
+}
+
+# --uninstall short-circuits the whole install path (it's the reverse operation).
+if ((UNINSTALL)); then
+  uninstall
+  exit 0
+fi
 
 # ── provision (unless --links-only); dry-run announces but installs nothing ──
 if ((LINKS_ONLY)); then
