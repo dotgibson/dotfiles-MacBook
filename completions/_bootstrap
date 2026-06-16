@@ -12,4 +12,5 @@ _arguments -s \
   '(--macos-defaults)--macos-defaults[also run macos/defaults.sh (system prefs)]' \
   '(--set-shell)--set-shell[make the Homebrew zsh the login shell (chsh)]' \
   '(--dry-run -n)'{--dry-run,-n}'[print every planned action; change nothing]' \
+  '(--quiet -q)'{--quiet,-q}'[show only CHANGES + the summary (quiet re-runs)]' \
   '(- *)'{-h,--help}'[show help and exit]'
