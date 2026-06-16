@@ -14,10 +14,18 @@
 # the whole run.
 set -uo pipefail
 
-# Colour only on a real TTY with NO_COLOR unset — piping to a file or a CI log
-# otherwise captures raw `\033[…m` escapes (the `echo -e` calls below would emit them
-# unconditionally). Matches bootstrap.sh and the Core layer's output discipline.
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+# Palette from the VENDORED shared bash UX lib (core/lib/ux.sh) when present, so this
+# installer speaks the SAME colours as bootstrap.sh + the Core layer instead of a third
+# hand-rolled copy (U7). Fallback to the inline rule (same TTY+NO_COLOR gate) until a Core
+# sync brings the lib. BOLD comes from tput either way (ux is a colour/glyph lib, not bold).
+_SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -r "$_SELF_DIR/../core/lib/ux.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "$_SELF_DIR/../core/lib/ux.sh"
+  GREEN=$UX_GRN YELLOW=$UX_YEL BLUE=$UX_BLU RESET=$UX_RST
+  BOLD=""
+  [[ -n "$GREEN" ]] && BOLD=$(tput bold 2>/dev/null || echo "")
+elif [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   BOLD=$(tput bold 2>/dev/null || echo "")
   RESET=$(tput sgr0 2>/dev/null || echo "")
   GREEN="\033[0;32m"

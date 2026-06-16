@@ -103,6 +103,33 @@ created=$(find "$SANDBOX" -mindepth 1 2>/dev/null | wc -l | tr -d ' ')
 assert_eq "dry-run creates zero files in HOME" 0 "$created"
 [[ -n "$SANDBOX" ]] && rm -rf "$SANDBOX"
 
+# ── B2. bootstrap.sh --uninstall: reverse links + restore backups (B4) ─────────
+section "bootstrap.sh — uninstall (reverse symlinks, restore backups, skip foreign)"
+
+# dry-run uninstall is a true no-op + scannable.
+run_bootstrap piped --uninstall --dry-run
+assert_eq "uninstall --dry-run exits 0" 0 "$RC"
+assert_contains "uninstall --dry-run announces itself" "$OUT" "DRY RUN"
+assert_contains "uninstall prints its summary" "$OUT" "uninstall summary"
+created=$(find "$SANDBOX" -mindepth 1 2>/dev/null | wc -l | tr -d ' ')
+assert_eq "uninstall --dry-run creates nothing" 0 "$created"
+[[ -n "$SANDBOX" ]] && rm -rf "$SANDBOX"
+
+# functional: a Core symlink + its backup is reversed; a FOREIGN symlink is left alone.
+uhome="$(mktemp -d)"
+ucfg="$uhome/.config/zsh"
+mkdir -p "$ucfg"
+ln -s "$REPO/zsh/zshrc" "$ucfg/.zshrc"                           # ours (points into the repo)
+printf 'ORIGINAL\n' >"$ucfg/.zshrc.pre-dotfiles.20250101-120000" # a prior backup
+ln -s /etc/hostname "$ucfg/aliases.zsh"                          # foreign (not into the repo)
+OUT="$(HOME="$uhome" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall 2>&1)"
+assert_eq "uninstall exits 0" 0 "$?"
+if [[ -L "$ucfg/.zshrc" ]]; then no "uninstall removed our symlink" "still a link"; else ok "uninstall removed our symlink"; fi
+assert_eq "uninstall restored the backup over it" "ORIGINAL" "$(cat "$ucfg/.zshrc" 2>/dev/null)"
+if [[ -L "$ucfg/aliases.zsh" ]]; then ok "uninstall left a FOREIGN symlink untouched"; else no "uninstall left a foreign symlink untouched" "it was removed"; fi
+assert_contains "uninstall flags the foreign link as not-ours" "$OUT" "not ours"
+rm -rf "$uhome"
+
 # ── C. zsh loader (zsh/zshrc) actually executes ───────────────────────────────
 # `make zsh-syntax` only parses (zsh -n). This sources the real loop against a
 # hermetic ZDOTDIR of stub modules and asserts it runs clean AND sources in order.
