@@ -223,12 +223,26 @@ _core_help() {
 _core_pager_cmd() { # → the pager command line on stdout, or non-zero when none/disabled
   [[ -n ${CORE_NO_PAGER:-} ]] && return 1
   local p="${PAGER:-less}"
+  # Match on the COMMAND TOKEN, not the whole $PAGER string: a user may set
+  # PAGER='bat -p' or PAGER='/usr/bin/bat --paging=always', so strip args first
+  # (${p%% *}) THEN take the basename (:t). Matching ${p:t} on the full string would
+  # miss those (':t' of "bat -p" is "bat -p"), letting bat still corrupt the output —
+  # the exact case this guard exists to prevent.
+  local cmd="${p%% *}"
   # less needs -R to render our ANSI; -F quits if it fits one screen (so a short sheet
   # doesn't trap you in the pager), -X doesn't clear the screen, -I case-folds search.
-  if [[ ${p:t} == less ]]; then
+  #
+  # U7: bat is a SYNTAX HIGHLIGHTER, not an ANSI-faithful pager. Our content is coloured
+  # BEFORE paging (callers force colour on — the pager can't see a TTY through the pipe),
+  # and bat re-highlights it: a green line comes back overlaid with bat's own white fg and
+  # double-wrapped escapes (verified empirically). So a bat-based $PAGER is routed to less,
+  # which preserves incoming ANSI with -R — fixing the prior behaviour where PAGER=bat ran
+  # bare and corrupted the help/doctor sheet. (bat stays the right tool for fzf/file
+  # previews, where IT does the colouring — just not for already-coloured text.)
+  if [[ ${cmd:t} == (less|bat|batcat) ]]; then
     _core_have less && { print -r -- "less -FIRX"; return 0; }
   else
-    _core_have "${p%% *}" && { print -r -- "$p"; return 0; }
+    _core_have "$cmd" && { print -r -- "$p"; return 0; }
   fi
   return 1
 }
@@ -264,6 +278,59 @@ _core_confirm() {
     print -u2 -- '' # newline after the single-char read
     return $rc
   fi
+}
+
+# ── input / choose ──────────────────────────────────────────────────────────────
+# Companions to _core_confirm for the other two interactive reads — a free-text line and
+# a one-of-N pick — so a Core verb (or an OS layer) gets arrow-key/edit UX where gum is
+# present and a clean plain fallback where it isn't, instead of hand-rolling a bare `read`
+# each time (U9). Same discipline as _core_confirm: no controlling TTY → return non-zero
+# WITHOUT reading, so a piped/cron/captured context fails safe rather than blocking.
+
+# _core_input <prompt> [--secret] [--placeholder TEXT]  → one line on STDOUT.
+# gum input (cursor editing; --password masks) when present; else zsh `read` (`-s` masks).
+_core_input() {
+  emulate -L zsh
+  local prompt="Value:" placeholder="" secret=0
+  while (($#)); do
+    case "$1" in
+    --secret) secret=1 ;;
+    --placeholder) placeholder="${2:-}"; shift ;;
+    *) prompt="$1" ;;
+    esac
+    shift
+  done
+  [[ -t 0 && -t 2 ]] || return 1 # no TTY → fail safe, read nothing
+  if _core_have gum; then
+    if ((secret)); then gum input --password --prompt "$prompt "
+    else gum input --prompt "$prompt " ${placeholder:+--placeholder "$placeholder"}; fi
+    return
+  fi
+  local reply
+  if ((secret)); then
+    read -rs "reply?$prompt "
+    print -u2 -- '' # newline after the silent read (the keystrokes weren't echoed)
+  else
+    read -r "reply?$prompt "
+  fi
+  print -r -- "$reply"
+}
+
+# _core_choose <item...>  → the chosen item on STDOUT, non-zero if nothing was picked.
+# gum choose (arrow keys + type-to-filter) when present; else a numbered zsh `select` menu.
+_core_choose() {
+  emulate -L zsh
+  (($#)) || return 1
+  [[ -t 0 && -t 2 ]] || return 1
+  if _core_have gum; then
+    gum choose -- "$@"
+    return
+  fi
+  local PS3="choose> " reply
+  select reply in "$@"; do
+    [[ -n "$reply" ]] && { print -r -- "$reply"; return 0; }
+  done
+  return 1
 }
 
 # ── progress ──────────────────────────────────────────────────────────────────

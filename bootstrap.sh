@@ -25,6 +25,7 @@ SET_SHELL=0
 UNINSTALL=0
 DRY=0
 QUIET=0
+JSON=0
 
 # usage() is a real function (heredoc) rather than `sed -n '2,18p' "$0"`: the old
 # form was coupled to header line numbers, so editing the banner silently drifted
@@ -41,6 +42,7 @@ bootstrap.sh — idempotent macOS provision + symlink wiring. Safe to re-run.
   ./bootstrap.sh --uninstall      remove Core symlinks + restore backed-up files
   ./bootstrap.sh --dry-run, -n    print every planned action; change nothing
   ./bootstrap.sh --quiet, -q      show only CHANGES + the summary (quiet re-runs)
+  ./bootstrap.sh --json           emit a machine-readable summary on stdout (for automation)
   ./bootstrap.sh -h, --help       show this help
 
 Flags combine: `./bootstrap.sh --links-only --dry-run` previews the symlink
@@ -56,7 +58,7 @@ EOF
 # via _core_suggest, instead of a bare usage dump. Heuristic, no external deps:
 # compare HYPHEN-NORMALISED forms (so `--dryrun` ≈ `--dry-run`) and accept an exact
 # match, a prefix either way, or a shared 4+ char stem. Silent when nothing's close.
-KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --uninstall --dry-run -n --quiet -q -h --help)
+KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --uninstall --dry-run -n --quiet -q --json -h --help)
 suggest() {
   local in="${1#--}" f cand n=0
   [[ -z "$in" || "$in" == "$1" ]] && return 0 # only guess for --long typos
@@ -83,6 +85,7 @@ for a in "$@"; do case "$a" in
   --uninstall) UNINSTALL=1 ;;
   --dry-run | -n) DRY=1 ;;
   --quiet | -q) QUIET=1 ;;
+  --json) JSON=1 QUIET=1 ;; # machine-readable summary on stdout; implies quiet for the body
   -h | --help)
     usage
     exit 0
@@ -96,34 +99,30 @@ for a in "$@"; do case "$a" in
     ;;
   esac done
 
-# Palette + glyphs now come from the VENDORED shared bash UX lib (core/lib/ux.sh) — ONE
-# definition across Core's bash layer instead of a hand-rolled copy here (B5). It's present
-# after a Core sync; until then (or if it's ever absent) fall back to the inline copy below,
-# which applies the SAME rule, so behaviour is byte-identical either way. Colour only on a
-# real TTY with NO_COLOR unset; glyphs degrade to ASCII off a UTF-8 locale (a recovery boot
-# / stripped SSH env would otherwise render the braille spinner + ✓/✗ as mojibake).
+# Palette + glyphs come from the VENDORED shared bash UX lib (core/lib/ux.sh) — ONE
+# definition across Core's bash layer (B5). A normal clone ALWAYS contains core/ (it's a
+# tracked subtree, and the core/ guard below hard-requires it), so this is REQUIRED, not
+# best-effort: the old inline fallback was unreachable dead weight that could silently
+# drift from the canonical rule. If ux.sh is missing the tree is incomplete — say so
+# plainly and stop, rather than limping on a hand-rolled copy. ux.sh handles colour
+# (TTY + NO_COLOR) and the UTF-8→ASCII glyph degradation itself.
 if [[ -r "$REPO/core/lib/ux.sh" ]]; then
   # shellcheck source=/dev/null
   source "$REPO/core/lib/ux.sh"
-  c_b=$UX_BLU c_g=$UX_GRN c_y=$UX_YEL c_r=$UX_RED c_0=$UX_RST
-  G_OK=$UX_OK G_INFO=$UX_INFO G_ERR=$UX_ERR SPIN_FRAMES=$UX_SPIN_FRAMES
 else
-  if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-    c_b=$'\e[34m'
-    c_g=$'\e[32m'
-    c_y=$'\e[33m'
-    c_r=$'\e[31m'
-    c_0=$'\e[0m'
-  else
-    c_b='' c_g='' c_y='' c_r='' c_0=''
-  fi
-  # bash 3.2-safe lowercasing via `tr` (no ${x,,}); mirrors Core's ui.zsh/ux.sh.
-  _lc="$(printf '%s' "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" | tr '[:upper:]' '[:lower:]')"
-  case "$_lc" in
-  *utf-8* | *utf8*) G_OK='✓' G_INFO='•' G_ERR='✗' SPIN_FRAMES='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' ;;
-  *) G_OK='ok' G_INFO='-' G_ERR='x' SPIN_FRAMES='-\|/' ;;
-  esac
+  printf 'bootstrap: core/lib/ux.sh is missing — the core/ subtree is incomplete.\n' >&2
+  printf '  a clone always contains core/; if building fresh, run:\n' >&2
+  printf '    git subtree add --prefix=core <dotfiles-core-url> main --squash\n' >&2
+  exit 1
 fi
+c_b=$UX_BLU c_g=$UX_GRN c_y=$UX_YEL c_r=$UX_RED c_0=$UX_RST
+G_OK=$UX_OK G_INFO=$UX_INFO G_ERR=$UX_ERR SPIN_FRAMES=$UX_SPIN_FRAMES
+
+# B7: in --json mode the ONLY thing on stdout must be the final summary object, so route
+# the entire human body (section headers, per-file lines, AND any subprocess output like
+# brew bundle) to stderr by pointing fd 1 there, saving the real stdout on fd 3. The JSON
+# is printed to >&3 at the very end. No effect outside --json.
+if ((JSON)); then exec 3>&1 1>&2; fi
 # Under --quiet, say() (section headers) and noop() (idempotent "already linked / present"
 # confirmations) fall silent, so a re-run prints only the CHANGES (info: linked/backed
 # up/seeded) + the summary. ok()/info()/err() — actual results, changes, and errors —
@@ -133,6 +132,37 @@ ok() { printf '  %s%s%s %s\n' "$c_g" "$G_OK" "$c_0" "$*"; }
 noop() { ((QUIET)) || ok "$@"; }
 info() { printf '  %s%s%s %s\n' "$c_y" "$G_INFO" "$c_0" "$*"; }
 err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
+
+# U3: step() is say() with an ordinal `[k/N]` prefix, so a long link phase reads as
+# BOUNDED progress ("where am I in this?") rather than an undifferentiated wall of
+# section headers. WIRE_TOTAL is the count of step() sections in wire_links; bump it if
+# you add/remove one (a wrong total is cosmetic — it never affects what gets linked).
+WIRE_STEP=0
+WIRE_TOTAL=10
+step() {
+  WIRE_STEP=$((WIRE_STEP + 1))
+  ((QUIET)) || printf '%s==>%s %s[%d/%d]%s %s\n' "$c_b" "$c_0" "$c_y" "$WIRE_STEP" "$WIRE_TOTAL" "$c_0" "$*"
+}
+
+# U4: confirm a destructive, system-mutating opt-in before doing it. The --set-shell /
+# --macos-defaults FLAGS are the consent in automation, so a non-interactive run (CI,
+# piped, no TTY) PROCEEDS without prompting — but an interactive operator gets a [y/N]
+# safety net (default no) before chsh / system `defaults` actually change anything. gum
+# confirm when it's on PATH (it may be, post-brew-bundle), else a plain read.
+confirm() {                      # confirm <prompt>  → 0 = proceed, non-zero = decline
+  [[ -t 0 && -t 2 ]] || return 0 # non-TTY → the flag already gave consent; don't block
+  if command -v gum >/dev/null 2>&1; then
+    gum confirm --default=false "$1"
+    return
+  fi
+  local reply
+  # `|| true`: a bare EOF (Ctrl-D) makes read exit non-zero. Treat that as a safe DECLINE
+  # (empty reply → the test below is false) rather than risk aborting under set -e. (Every
+  # caller already invokes confirm in a tested `||`/`if` context, where set -e is suspended
+  # inside the function, but this makes the EOF→decline contract explicit and call-safe.)
+  read -r -p "$1 [y/N] " reply || true
+  [[ "$reply" == [yY]* ]]
+}
 
 # Run-summary counters. NB: bump with `n=$((n+1))`, never `((n++))` — under
 # `set -e`, a standalone `((n++))` evaluates to the OLD value and, when that's 0,
@@ -192,7 +222,11 @@ spin() {
   # done/failed marker so a log reads as discrete steps with outcomes, not a bare
   # "label…" with no resolution (the TTY path below ends each step with ✓/✗ too).
   if [[ ! -t 1 ]]; then
-    info "$label…"
+    # ${label} braced, NOT "$label…": bash 3.2 (macOS /bin/bash) slurps the trailing
+    # multibyte … into the variable NAME, looks up the unset `label…`, and under `set -u`
+    # aborts the whole run. This non-TTY spin path is only reached on a real apply (the mise
+    # install step), so it stayed hidden until the apply round-trip test exercised it.
+    info "${label}…"
     # Run inside `||` so a non-zero exit can't trip `set -e` before we capture rc and emit
     # the marker — spin() may be called without an `|| handler` guard at the call site.
     local rc=0
@@ -325,14 +359,21 @@ provision() {
     eval "$(/opt/homebrew/bin/brew shellenv)"
   elif [[ -x /usr/local/bin/brew ]]; then eval "$(/usr/local/bin/brew shellenv)"; fi
   if ((!NO_BREW)) && [[ -f "$REPO/Brewfile" ]]; then
-    # Up-front scope so the longest, mostly-opaque step reads as BOUNDED work, not an
-    # open-ended hang: count the Brewfile entries (best-effort; falls back to "?" if the
-    # list query fails) and name the number before handing off to brew's own streaming
-    # output. `brew bundle list --all` enumerates every tap/brew/cask/mas line.
-    local n_pkgs
-    n_pkgs="$(brew bundle list --file="$REPO/Brewfile" --all 2>/dev/null | wc -l | tr -d ' ')"
-    say "brew bundle (${n_pkgs:-?} formulae/casks — this can take a while)"
-    brew bundle --file="$REPO/Brewfile"
+    # B13: skip the expensive resolve+install when the Brewfile is already satisfied.
+    # `brew bundle check` is a fast read-only "is everything here installed?" probe, so a
+    # re-run on a provisioned box no longer pays for a full `brew bundle` pass.
+    if brew bundle check --file="$REPO/Brewfile" >/dev/null 2>&1; then
+      ok "brew bundle already satisfied — skipping (every formula/cask is installed)"
+    else
+      # Up-front scope so the longest, mostly-opaque step reads as BOUNDED work, not an
+      # open-ended hang: count the Brewfile entries (best-effort; falls back to "?" if the
+      # list query fails) and name the number before handing off to brew's own streaming
+      # output. `brew bundle list --all` enumerates every tap/brew/cask/mas line.
+      local n_pkgs
+      n_pkgs="$(brew bundle list --file="$REPO/Brewfile" --all 2>/dev/null | wc -l | tr -d ' ')"
+      say "brew bundle (${n_pkgs:-?} formulae/casks — this can take a while)"
+      brew bundle --file="$REPO/Brewfile"
+    fi
   else
     info "skipping brew bundle (--no-brew or no Brewfile yet)"
   fi
@@ -375,6 +416,10 @@ set_login_shell() {
     info "would add $brew_zsh to /etc/shells (if absent), then: chsh -s $brew_zsh"
     return 0
   fi
+  confirm "Change your login shell to $brew_zsh now (chsh)?" || {
+    info "login shell unchanged (declined)"
+    return 0
+  }
   grep -qxF "$brew_zsh" /etc/shells 2>/dev/null || echo "$brew_zsh" | sudo tee -a /etc/shells >/dev/null
   if chsh -s "$brew_zsh"; then
     ok "login shell set — open a new terminal to use it"
@@ -386,23 +431,27 @@ set_login_shell() {
 # ── symlinks ──────────────────────────────────────────────────────────────────
 wire_links() {
   local CFG="$HOME/.config"
-  say "Core helper scripts -> ~/.local/bin"
+  WIRE_STEP=0 # reset so the [k/N] counter is fresh even if wire_links is called twice
+  step "Core helper scripts -> ~/.local/bin"
   link "$REPO/core/bin/clip" "$HOME/.local/bin/clip"
   link "$REPO/core/bin/clip-paste" "$HOME/.local/bin/clip-paste"
   run chmod +x "$REPO/core/bin/clip" "$REPO/core/bin/clip-paste"
 
-  say "zsh modules"
-  for f in "$REPO"/core/zsh/*.zsh; do link "$f" "$CFG/zsh/$(basename "$f")"; done
+  # U2: name the bounded count up front so the module loop reads as finite work, not an
+  # open-ended stream of link lines.
+  local _zmods=("$REPO"/core/zsh/*.zsh)
+  step "zsh modules (${#_zmods[@]} Core modules)"
+  for f in "${_zmods[@]}"; do link "$f" "$CFG/zsh/$(basename "$f")"; done
   link "$REPO/os/macos.zsh" "$CFG/zsh/os.zsh" # the macOS interactive layer
   # entry layer (ZDOTDIR model): ~/.zshenv sets ZDOTDIR; .zprofile/.zshrc live in $ZDOTDIR
   link "$REPO/zsh/zshenv" "$HOME/.zshenv"
   link "$REPO/zsh/zprofile" "$CFG/zsh/.zprofile"
   link "$REPO/zsh/zshrc" "$CFG/zsh/.zshrc"
 
-  say "starship"
+  step "starship"
   link "$REPO/core/starship/starship.toml" "$CFG/starship.toml" # starship's default path
 
-  say "tmux"
+  step "tmux"
   link "$REPO/core/tmux/tmux.conf" "$CFG/tmux/tmux.conf"
   # FIX: tmux.conf's first line `source-file ~/.config/tmux/tmux.reset.conf` needs
   # this link to exist. Without it, tmux errors on every start AND the prefix
@@ -429,28 +478,28 @@ wire_links() {
     noop "tpm present"
   fi
 
-  say "neovim"
+  step "neovim"
   link "$REPO/core/nvim" "$CFG/nvim"
 
-  say "git"
+  step "git"
   link "$REPO/core/git/gitconfig" "$HOME/.gitconfig"
   link "$REPO/os/macos.gitconfig" "$CFG/git/os.gitconfig"
   link "$REPO/os/macos.gitignore" "$CFG/git/ignore"
   seed "$REPO/core/git/local.gitconfig.example" "$CFG/git/local.gitconfig" \
     "set your name/email there (never tracked)"
 
-  say "mise"
+  step "mise"
   link "$REPO/core/mise/config.toml" "$CFG/mise/config.toml"
 
-  say "sesh"
+  step "sesh"
   # seed (don't symlink) the portable sesh config; engagement layouts live in Kali.
   seed "$REPO/core/sesh/sesh.toml.example" "$CFG/sesh/sesh.toml" \
     "edit freely; not tracked from here"
 
-  say "ghostty"
+  step "ghostty"
   link "$REPO/ghostty/config" "$CFG/ghostty/config"
 
-  say "ssh"
+  step "ssh"
   if [[ -f "$REPO/ssh/config" ]]; then
     link "$REPO/ssh/config" "$HOME/.ssh/config"
     run chmod 600 "$REPO/ssh/config"
@@ -578,8 +627,10 @@ if ((RUN_DEFAULTS)) && [[ -f "$REPO/macos/defaults.sh" ]]; then
   say "macos/defaults.sh"
   if ((DRY)); then
     info "would run: bash macos/defaults.sh (pass --dry-run to preview its keys)"
-  else
+  elif confirm "Apply macOS system defaults now (changes system prefs)?"; then
     bash "$REPO/macos/defaults.sh" || info "defaults.sh hit an issue"
+  else
+    info "macOS defaults skipped (declined)"
   fi
 elif [[ -f "$REPO/macos/defaults.sh" ]]; then
   info "system defaults available — apply with: ./bootstrap.sh --macos-defaults  (or: bash macos/defaults.sh)"
@@ -591,4 +642,20 @@ if ((DRY)); then
   info "dry run — nothing above was actually changed; re-run without --dry-run to apply"
 else
   ok "macOS bootstrap complete — open a new shell or: exec zsh"
+fi
+
+# B7: machine-readable summary on the REAL stdout (fd 3, saved before the body redirect).
+# Provisioning automation can parse what changed + which headline tools landed on PATH,
+# instead of scraping human output. Hand-built JSON (no jq dependency on a fresh box).
+if ((JSON)); then
+  _dry=false
+  ((DRY)) && _dry=true
+  _tools_json=""
+  for _t in zsh starship mise fzf nvim tmux git; do
+    if command -v "$_t" >/dev/null 2>&1; then _present=true; else _present=false; fi
+    _tools_json+="${_tools_json:+,}\"$_t\":$_present"
+  done
+  printf '{"dry_run":%s,"linked":%d,"backed_up":%d,"seeded":%d,"skipped":%d,"removed":%d,"restored":%d,"tools":{%s}}\n' \
+    "$_dry" "$n_linked" "$n_backed" "$n_seeded" "$n_skipped" "$n_removed" "$n_restored" \
+    "$_tools_json" >&3
 fi

@@ -22,8 +22,14 @@ QUIET=0
 [[ "${1:-}" == "--quiet" ]] && QUIET=1
 
 # ── tiny assert framework ─────────────────────────────────────────────────────
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-  c_g=$'\e[32m' c_r=$'\e[31m' c_d=$'\e[2;37m' c_0=$'\e[0m'
+# Palette from the VENDORED shared bash UX lib (core/lib/ux.sh) — ONE colour rule across
+# the repo's bash instead of a hand-rolled TTY/NO_COLOR block that drifts (B4). Maps UX_*
+# onto the c_* names this harness already uses. Guarded so the harness still runs if core/
+# is somehow absent (degrades to no colour, never an unbound-var error under set -u).
+if [[ -r "$REPO/core/lib/ux.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "$REPO/core/lib/ux.sh"
+  c_g=$UX_GRN c_r=$UX_RED c_d=$UX_DIM c_0=$UX_RST
 else
   c_g='' c_r='' c_d='' c_0=''
 fi
@@ -102,6 +108,46 @@ assert_eq "piped output carries no ANSI escape bytes" 0 "$esc"
 created=$(find "$SANDBOX" -mindepth 1 2>/dev/null | wc -l | tr -d ' ')
 assert_eq "dry-run creates zero files in HOME" 0 "$created"
 [[ -n "$SANDBOX" ]] && rm -rf "$SANDBOX"
+
+# ── B1b. bootstrap.sh: a REAL apply creates the links + is idempotent (B8) ─────
+# The CI macOS job only ever ran `--links-only --dry-run` (the PLAN), so a regression in
+# the actual link/seed step — a renamed source, a broken wire_links edit — could ship
+# green. This exercises a real apply against a sandboxed HOME and asserts the links land
+# (pointing INTO the repo), seeds are real files, a re-apply is idempotent, and the
+# apply→uninstall round-trip is clean. Hermetic: pre-seed tpm so wire_links skips the
+# network clone, and stub `mise` so the post-link `mise install` is an instant no-op
+# whether or not real mise is on PATH. Runs on Linux CI too (BOOTSTRAP_ALLOW_NON_DARWIN).
+section "bootstrap.sh — real apply creates links, idempotent, round-trips (B8)"
+
+ahome="$(mktemp -d)"
+abin="$(mktemp -d)"
+mkdir -p "$ahome/.config/tmux/plugins/tpm"
+printf '#!/bin/sh\nexit 0\n' >"$abin/mise"
+chmod +x "$abin/mise"
+OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --no-brew --links-only 2>&1)"
+arc=$?
+((arc == 0)) || printf '%s\n' "$OUT" | sed 's/^/    [apply diag] /' >&2 # surface where it stopped
+assert_eq "apply (--no-brew --links-only) exits 0" 0 "$arc"
+for l in .zshenv .config/zsh/.zshrc .config/starship.toml .config/nvim .local/bin/clip; do
+  tgt="$(readlink "$ahome/$l" 2>/dev/null || true)"
+  case "$tgt" in
+  "$REPO"/*) ok "apply linked $l → repo" ;;
+  *) no "apply linked $l → repo" "got: ${tgt:-<missing>}" ;;
+  esac
+done
+if [[ -f "$ahome/.config/git/local.gitconfig" && ! -L "$ahome/.config/git/local.gitconfig" ]]; then
+  ok "apply seeded local.gitconfig as a real file (editable, not a symlink)"
+else
+  no "apply seeded local.gitconfig as a real file" "missing or a symlink"
+fi
+OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --no-brew --links-only 2>&1)"
+arc=$?
+((arc == 0)) || printf '%s\n' "$OUT" | sed 's/^/    [re-apply diag] /' >&2
+assert_eq "re-apply exits 0 (idempotent)" 0 "$arc"
+assert_contains "re-apply reports an already-linked file" "$OUT" "already linked"
+HOME="$ahome" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall >/dev/null 2>&1
+if [[ -L "$ahome/.zshenv" ]]; then no "apply→uninstall round-trip removes the links" "still a link"; else ok "apply→uninstall round-trip removes the links"; fi
+rm -rf "$ahome" "$abin"
 
 # ── B2. bootstrap.sh --uninstall: reverse links + restore backups (B4) ─────────
 section "bootstrap.sh — uninstall (reverse symlinks, restore backups, skip foreign)"

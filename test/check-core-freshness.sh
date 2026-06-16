@@ -17,9 +17,16 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO" || exit 1
 
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-  c_g=$'\e[32m' c_y=$'\e[33m' c_0=$'\e[0m'
-else c_g='' c_y='' c_0=''; fi
+# Palette from the VENDORED shared bash UX lib (core/lib/ux.sh) — ONE colour rule instead
+# of a hand-rolled TTY/NO_COLOR block that drifts (B4). Guarded: this script SKIPs when
+# core/ is absent, so fall back to no colour rather than fail to source it.
+if [[ -r "$REPO/core/lib/ux.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "$REPO/core/lib/ux.sh"
+  c_g=$UX_GRN c_y=$UX_YEL c_0=$UX_RST
+else
+  c_g='' c_y='' c_0=''
+fi
 skip() {
   printf '%s–%s %s\n' "$c_y" "$c_0" "$*"
   exit 0
