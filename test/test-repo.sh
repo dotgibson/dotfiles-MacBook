@@ -205,6 +205,11 @@ if command -v zsh >/dev/null 2>&1; then
     # shellcheck disable=SC2016
     printf 'print -r -- %s >> "$ZSH_ORDER_LOG"\n' "$m" >"$zcfg/$m.zsh"
   done
+  # zshrc now sources the VENDORED loader (B12) rather than an inline loop, so the sandbox
+  # needs loader.zsh present (bootstrap symlinks it from core/zsh/ in a real install). 'ui'
+  # has no stub above, so the loader skips it (its `[[ -r ]] || continue`) and the order log
+  # matches $modules — exercising the real skip path too.
+  ln -s "$REPO/core/zsh/loader.zsh" "$zcfg/loader.zsh"
   order_log="$zhome/order.log"
   zerr="$(ZDOTDIR="$zcfg" ZSH_ORDER_LOG="$order_log" zsh -f -c "source '$REPO/zsh/zshrc'" 2>&1)"
   zrc=$?

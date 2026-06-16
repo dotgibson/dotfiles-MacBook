@@ -37,24 +37,31 @@
 # ── Core modules + macOS layer + local overrides, in order ───────────────────
 # (history + completion/compinit + setopts are owned by history.zsh/options.zsh.)
 #
-# Each module is byte-compiled to a .zwc on the side before sourcing: when a
-# fresh $_f.zwc exists, `source $_f` loads the wordcode and skips re-parsing the
-# script — meaningful across ~13 modules sourced on every shell. The compile only
-# runs when the source is newer than its .zwc (or the .zwc is missing), so it's
-# self-healing: edit a module (or `git pull`) and the next shell recompiles just
-# that file; steady state is ~13 stats. zcompile is a builtin (no `>` redirection),
-# so options.zsh's NO_CLOBBER doesn't apply, and it writes the .zwc atomically.
-# The .zwc files land next to the symlinks in $ZSH_CFG (the runtime dir), so they
-# never touch the repo. `2>/dev/null`: on a read-only $ZSH_CFG, compile silently
-# no-ops and we just source the plain script.
+# The byte-compile-then-source loop now lives in the VENDORED Core loader
+# (core/zsh/loader.zsh → ~/.config/zsh/loader.zsh), so every OS repo declares the load
+# order and sources ONE shared implementation instead of hand-rolling the same ~10 lines
+# (B12). loader.zsh runs at THIS top-level scope — never wrapped in a function — so the
+# setopts / aliases / compinit each module performs persist into the interactive shell.
+# (It byte-compiles each module to a .zwc beside its symlink and sources the wordcode;
+# self-healing on edit/pull; .zwc files stay in $ZSH_CFG, never the repo.)
 ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
-for _m in tools ui options history aliases git functions fzf bindings plugins op maint update os local; do
-  _f="$ZSH_CFG/$_m.zsh"
-  [[ -r "$_f" ]] || continue
-  # zcompile with NO trailing name args = script mode: it writes "$_f.zwc". (A
-  # trailing function-name arg would switch it to function-digest mode, which
-  # `source` can't use as wordcode — so keep it single-arg.)
-  [[ -s "$_f.zwc" && ! "$_f" -nt "$_f.zwc" ]] || zcompile -R -- "$_f" 2>/dev/null
-  source "$_f"
-done
-unset _m _f
+_CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update os local)
+# Prefer the installed runtime symlink ($ZSH_CFG/loader.zsh). FALLBACK to the vendored copy
+# via this file's OWN resolved path, because a plain `git pull` updates this (symlinked)
+# .zshrc to reference loader.zsh BEFORE the user re-runs `./bootstrap.sh --links-only` that
+# creates the symlink — and without a fallback every interactive shell would then start with
+# NO Core modules. (Before B12 the inline loop skipped missing modules one-by-one; the
+# single vendored loader is all-or-nothing, so it needs this guard.)
+if [[ -r "$ZSH_CFG/loader.zsh" ]]; then
+  source "$ZSH_CFG/loader.zsh"
+else
+  _zshrc_self="${${(%):-%N}:A}" # resolved real path of THIS sourced file (<repo>/zsh/zshrc)
+  if [[ -r "${_zshrc_self:h:h}/core/zsh/loader.zsh" ]]; then
+    source "${_zshrc_self:h:h}/core/zsh/loader.zsh"
+    print -u2 -- "zshrc: loader.zsh not linked yet — used the repo copy. Run ./bootstrap.sh --links-only to (re)link Core."
+  else
+    print -u2 -- "zshrc: loader.zsh not found — run ./bootstrap.sh --links-only (Core modules not loaded)."
+  fi
+  unset _zshrc_self
+fi
+unset _CORE_MODULES

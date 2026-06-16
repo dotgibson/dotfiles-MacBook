@@ -1,0 +1,4 @@
+# GENERATED — vendored Core provenance (B1). Regenerate with: make core-lock
+core_version=0.1.0-dev
+core_sha=d74752d532905aeca0e2928e48c2d2ed420e3355
+core_branch=main
