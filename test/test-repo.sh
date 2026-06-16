@@ -22,8 +22,14 @@ QUIET=0
 [[ "${1:-}" == "--quiet" ]] && QUIET=1
 
 # ── tiny assert framework ─────────────────────────────────────────────────────
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-  c_g=$'\e[32m' c_r=$'\e[31m' c_d=$'\e[2;37m' c_0=$'\e[0m'
+# Palette from the VENDORED shared bash UX lib (core/lib/ux.sh) — ONE colour rule across
+# the repo's bash instead of a hand-rolled TTY/NO_COLOR block that drifts (B4). Maps UX_*
+# onto the c_* names this harness already uses. Guarded so the harness still runs if core/
+# is somehow absent (degrades to no colour, never an unbound-var error under set -u).
+if [[ -r "$REPO/core/lib/ux.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "$REPO/core/lib/ux.sh"
+  c_g=$UX_GRN c_r=$UX_RED c_d=$UX_DIM c_0=$UX_RST
 else
   c_g='' c_r='' c_d='' c_0=''
 fi
