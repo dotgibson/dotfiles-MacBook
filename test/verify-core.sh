@@ -49,7 +49,19 @@ command -v git >/dev/null 2>&1 || skip "verify-core: git not available"
 # commit body as `git-subtree-split: <sha>` under `git-subtree-dir: core`.
 SPLIT="$(git log --grep='git-subtree-dir: core' -n1 --format='%b' 2>/dev/null |
   sed -n 's/^[[:space:]]*git-subtree-split:[[:space:]]*//p' | head -n1)"
-[[ -n "$SPLIT" ]] || skip "verify-core: no git-subtree-split marker (not a subtree checkout?)"
+# B1: core.lock is the O(1) offline provenance stamp (core_sha=<full subtree-split>). When
+# BOTH the marker and core.lock are present, assert they AGREE — a mismatch means core.lock
+# is stale (a manual subtree pull without `make core-lock`), so fail loudly rather than
+# verify against the wrong commit. When only core.lock is present (a shallow clone with no
+# subtree history), trust it — verifying without full history is exactly the point.
+LOCK_SHA=""
+[[ -r core.lock ]] && LOCK_SHA="$(sed -n 's/^core_sha=//p' core.lock | head -n1)"
+if [[ -n "$SPLIT" && -n "$LOCK_SHA" && "$SPLIT" != "$LOCK_SHA" ]]; then
+  fail "core.lock (${LOCK_SHA:0:12}) != subtree-split (${SPLIT:0:12}) — stale lock; run 'make core-lock' and commit it"
+  exit 1
+fi
+[[ -n "$SPLIT" ]] || SPLIT="$LOCK_SHA"
+[[ -n "$SPLIT" ]] || skip "verify-core: no git-subtree-split marker or core.lock (not a subtree checkout?)"
 
 UPSTREAM="${CORE_UPSTREAM:-https://github.com/Gerrrt/dotfiles-core}"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/verify-core.XXXXXX")"

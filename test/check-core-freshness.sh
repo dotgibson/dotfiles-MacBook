@@ -33,9 +33,14 @@ skip() {
 }
 
 command -v git >/dev/null 2>&1 || skip "check-core-freshness: git unavailable"
-SPLIT="$(git log --grep='git-subtree-dir: core' -n1 --format='%b' 2>/dev/null |
+# B1: prefer the O(1) offline provenance stamp (core.lock, written by sync-core / `make
+# core-lock`); fall back to the subtree-split marker (which needs full history) when it's
+# absent. Either yields the commit the vendored core/ was last synced from.
+SPLIT=""
+[[ -r core.lock ]] && SPLIT="$(sed -n 's/^core_sha=//p' core.lock | head -n1)"
+[[ -n "$SPLIT" ]] || SPLIT="$(git log --grep='git-subtree-dir: core' -n1 --format='%b' 2>/dev/null |
   sed -n 's/^[[:space:]]*git-subtree-split:[[:space:]]*//p' | head -n1)"
-[[ -n "$SPLIT" ]] || skip "check-core-freshness: no git-subtree-split marker (not a subtree checkout?)"
+[[ -n "$SPLIT" ]] || skip "check-core-freshness: no core.lock or git-subtree-split marker (not a subtree checkout?)"
 
 UPSTREAM="${CORE_UPSTREAM:-https://github.com/Gerrrt/dotfiles-core}"
 BRANCH="${CORE_BRANCH:-main}"
