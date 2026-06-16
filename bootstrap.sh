@@ -209,7 +209,7 @@ spin() {
     printf '\r  %s%s%s %s' "$c_y" "${frames:i++%${#frames}:1}" "$c_0" "$label"
     sleep 0.1
   done
-  printf '\e[?25h\r\033[K'    # restore cursor, return to col 0, clear the line
+  printf '\e[?25h\r\033[K'   # restore cursor, return to col 0, clear the line
   trap on_interrupt INT TERM # re-arm the normal interrupt handlers
   if wait "$pid"; then
     rc=0
