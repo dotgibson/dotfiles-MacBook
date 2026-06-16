@@ -490,6 +490,16 @@ unlink_dest() { # unlink_dest <dest>
       return 0
     fi
   fi
+  # Never restore a backup OVER an existing real file/dir. We only restore into a slot we
+  # just emptied (our symlink was removed above) or one that's now absent — if a REAL file
+  # sits at $dest, it's the user's own (they may have replaced our link with it), so leave
+  # it untouched rather than clobber it with a stale backup. (In --dry-run our symlink isn't
+  # actually removed, so $dest is still a symlink here and this guard correctly lets the
+  # restore PREVIEW through.)
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    noop "skip restore (real file present, not ours): ${dest/#"$HOME"/\~}"
+    return 0
+  fi
   # Restore the most recent backup, if any. The backup suffix is a zero-padded
   # YYYYMMDD-HHMMSS stamp, so a lexical sort IS chronological — the LAST glob match is the
   # newest. nullglob makes a no-match yield an empty array (not the literal pattern).

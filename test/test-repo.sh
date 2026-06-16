@@ -130,6 +130,19 @@ if [[ -L "$ucfg/aliases.zsh" ]]; then ok "uninstall left a FOREIGN symlink untou
 assert_contains "uninstall flags the foreign link as not-ours" "$OUT" "not ours"
 rm -rf "$uhome"
 
+# safety: if the user replaced our symlink with a REAL file, uninstall must NOT clobber it
+# with a stale backup (it must leave real files untouched). Regression for the data-loss
+# path Copilot flagged: a real file at $dest + a .pre-dotfiles.* backup present.
+shome="$(mktemp -d)"
+scfg="$shome/.config/zsh"
+mkdir -p "$scfg"
+printf 'USER REAL FILE\n' >"$scfg/.zshrc"                            # a real file the user put there
+printf 'STALE BACKUP\n' >"$scfg/.zshrc.pre-dotfiles.20240101-000000" # an old backup also present
+OUT="$(HOME="$shome" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall 2>&1)"
+assert_eq "uninstall does NOT overwrite a real file with a stale backup" "USER REAL FILE" "$(cat "$scfg/.zshrc" 2>/dev/null)"
+assert_contains "uninstall reports it skipped the real file" "$OUT" "real file present"
+rm -rf "$shome"
+
 # ── C. zsh loader (zsh/zshrc) actually executes ───────────────────────────────
 # `make zsh-syntax` only parses (zsh -n). This sources the real loop against a
 # hermetic ZDOTDIR of stub modules and asserts it runs clean AND sources in order.
