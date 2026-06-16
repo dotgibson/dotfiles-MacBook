@@ -288,7 +288,7 @@ jobs:
               exit 1
             }
           else
-            echo "::warning::Brewfile.lock.json not committed yet — run 'brew bundle' once and commit it for reproducible installs"
+            echo "::warning::Brewfile.lock.json not committed yet — run 'make brew-lock' on macOS and commit it for reproducible installs"
           fi
 
       # Real-Darwin smoke of the entry points: the symlink plan (catches a dead link
