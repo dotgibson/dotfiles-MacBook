@@ -109,6 +109,42 @@ created=$(find "$SANDBOX" -mindepth 1 2>/dev/null | wc -l | tr -d ' ')
 assert_eq "dry-run creates zero files in HOME" 0 "$created"
 [[ -n "$SANDBOX" ]] && rm -rf "$SANDBOX"
 
+# ── B1b. bootstrap.sh: a REAL apply creates the links + is idempotent (B8) ─────
+# The CI macOS job only ever ran `--links-only --dry-run` (the PLAN), so a regression in
+# the actual link/seed step — a renamed source, a broken wire_links edit — could ship
+# green. This exercises a real apply against a sandboxed HOME and asserts the links land
+# (pointing INTO the repo), seeds are real files, a re-apply is idempotent, and the
+# apply→uninstall round-trip is clean. Hermetic: pre-seed tpm so wire_links skips the
+# network clone, and stub `mise` so the post-link `mise install` is an instant no-op
+# whether or not real mise is on PATH. Runs on Linux CI too (BOOTSTRAP_ALLOW_NON_DARWIN).
+section "bootstrap.sh — real apply creates links, idempotent, round-trips (B8)"
+
+ahome="$(mktemp -d)"
+abin="$(mktemp -d)"
+mkdir -p "$ahome/.config/tmux/plugins/tpm"
+printf '#!/bin/sh\nexit 0\n' >"$abin/mise"
+chmod +x "$abin/mise"
+OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --no-brew --links-only 2>&1)"
+assert_eq "apply (--no-brew --links-only) exits 0" 0 "$?"
+for l in .zshenv .config/zsh/.zshrc .config/starship.toml .config/nvim .local/bin/clip; do
+  tgt="$(readlink "$ahome/$l" 2>/dev/null || true)"
+  case "$tgt" in
+  "$REPO"/*) ok "apply linked $l → repo" ;;
+  *) no "apply linked $l → repo" "got: ${tgt:-<missing>}" ;;
+  esac
+done
+if [[ -f "$ahome/.config/git/local.gitconfig" && ! -L "$ahome/.config/git/local.gitconfig" ]]; then
+  ok "apply seeded local.gitconfig as a real file (editable, not a symlink)"
+else
+  no "apply seeded local.gitconfig as a real file" "missing or a symlink"
+fi
+OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --no-brew --links-only 2>&1)"
+assert_eq "re-apply exits 0 (idempotent)" 0 "$?"
+assert_contains "re-apply reports an already-linked file" "$OUT" "already linked"
+HOME="$ahome" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall >/dev/null 2>&1
+if [[ -L "$ahome/.zshenv" ]]; then no "apply→uninstall round-trip removes the links" "still a link"; else ok "apply→uninstall round-trip removes the links"; fi
+rm -rf "$ahome" "$abin"
+
 # ── B2. bootstrap.sh --uninstall: reverse links + restore backups (B4) ─────────
 section "bootstrap.sh — uninstall (reverse symlinks, restore backups, skip foreign)"
 
