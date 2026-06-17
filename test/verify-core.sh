@@ -95,7 +95,19 @@ rm -rf "$TMP/.git" # compare working trees only
 # lockfile. Core still ships a lockfile (the canonical/seed pins), but enforcing it
 # byte-for-byte here would make normal editor use break every `core/` sync. So skip it;
 # `-x` matches the basename (there's only the one lazy-lock.json, under nvim/).
-echo ":: vendored core/ vs upstream dotfiles-core @ ${SPLIT:0:12} (excluding nvim/lazy-lock.json — machine-mutable)"
+#
+# We tolerate its CONTENT drifting, NOT its ABSENCE: Core ships it as the seed pins, so a
+# deletion/omission on either side is a real defect `-x` would otherwise hide. Assert it
+# exists in both trees first, then run the content-excluded diff for everything else.
+if [[ ! -f "$TMP/nvim/lazy-lock.json" ]]; then
+  fail "upstream @ ${SPLIT:0:12} is missing nvim/lazy-lock.json — Core must ship the seed lockfile"
+  exit 1
+fi
+if [[ ! -f core/nvim/lazy-lock.json ]]; then
+  fail "vendored core/nvim/lazy-lock.json is missing — restore it (Core ships the seed pins)"
+  exit 1
+fi
+echo ":: vendored core/ vs upstream dotfiles-core @ ${SPLIT:0:12} (lazy-lock.json: presence-checked, content excluded — machine-mutable)"
 if diff -rq -x lazy-lock.json "$TMP" core >"$TMP.diff" 2>&1; then
   ok "vendored core/ is byte-for-byte upstream @ ${SPLIT:0:12} (lazy-lock.json excluded)"
   exit 0
