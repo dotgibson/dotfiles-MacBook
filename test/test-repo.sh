@@ -270,6 +270,23 @@ assert_contains "defaults.sh --dry-run prints a summary" "$OUT" "nothing changed
 esc=$(printf '%s' "$OUT" | grep -c $'\e' || true)
 assert_eq "defaults.sh piped output carries no ANSI escapes" 0 "$esc"
 
+# ── F. ghostty/config — seeded but otherwise un-validated ─────────────────────
+# ghostty has no headless config-lint, so we can't truly parse it; but a smoke check
+# catches gross corruption a symlink would happily wire up — a merge-conflict marker,
+# a stray paste, a truncated file. ghostty's format is `key = value` (or `#` comments),
+# so every non-blank, non-comment line must contain '='. Cheap; catches the real breakage.
+section "ghostty/config — no obvious corruption (key = value lines)"
+if [[ -s "$REPO/ghostty/config" ]]; then
+  bad="$(grep -vE '^[[:space:]]*(#|$)' "$REPO/ghostty/config" | grep -vE '=' || true)"
+  if [[ -z "$bad" ]]; then
+    ok "ghostty/config: every directive is a key = value line"
+  else
+    no "ghostty/config has non-comment line(s) without '='" "$(printf '%s' "$bad" | head -3)"
+  fi
+else
+  no "ghostty/config is missing or empty" "expected a seeded config at ghostty/config"
+fi
+
 # ── summary ───────────────────────────────────────────────────────────────────
 printf '\n%s──────── repo test summary ────────%s\n' "$c_d" "$c_0"
 printf '  %spass %d%s   %sskip %d%s   ' "$c_g" "$pass" "$c_0" "$c_d" "$skip" "$c_0"
