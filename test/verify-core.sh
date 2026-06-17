@@ -88,9 +88,16 @@ rm -rf "$TMP/.git" # compare working trees only
 
 # Byte-for-byte diff: upstream tree (files at its root) vs the vendored core/. `diff -rq`
 # reports both content differences AND files present on only one side (orphans / omissions).
-echo ":: vendored core/ vs upstream dotfiles-core @ ${SPLIT:0:12}"
-if diff -rq "$TMP" core >"$TMP.diff" 2>&1; then
-  ok "vendored core/ is byte-for-byte upstream @ ${SPLIT:0:12}"
+#
+# EXCEPT nvim/lazy-lock.json: lazy.nvim REWRITES it in place whenever plugins are
+# installed/updated, and ~/.config/nvim is bootstrap-symlinked into the vendored core/nvim/
+# — so on any machine that actually runs nvim it legitimately drifts from Core's seed
+# lockfile. Core still ships a lockfile (the canonical/seed pins), but enforcing it
+# byte-for-byte here would make normal editor use break every `core/` sync. So skip it;
+# `-x` matches the basename (there's only the one lazy-lock.json, under nvim/).
+echo ":: vendored core/ vs upstream dotfiles-core @ ${SPLIT:0:12} (excluding nvim/lazy-lock.json — machine-mutable)"
+if diff -rq -x lazy-lock.json "$TMP" core >"$TMP.diff" 2>&1; then
+  ok "vendored core/ is byte-for-byte upstream @ ${SPLIT:0:12} (lazy-lock.json excluded)"
   exit 0
 fi
 fail "vendored core/ DIFFERS from upstream @ ${SPLIT:0:12} — a subtree conflict or a hand-edit:"
