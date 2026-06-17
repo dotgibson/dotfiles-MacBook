@@ -277,7 +277,7 @@ assert_eq "defaults.sh piped output carries no ANSI escapes" 0 "$esc"
 # so every non-blank, non-comment line must contain '='. Cheap; catches the real breakage.
 section "ghostty/config — no obvious corruption (key = value lines)"
 if [[ -s "$REPO/ghostty/config" ]]; then
-  bad="$(grep -vE '^\s*(#|$)' "$REPO/ghostty/config" | grep -vE '=' || true)"
+  bad="$(grep -vE '^[[:space:]]*(#|$)' "$REPO/ghostty/config" | grep -vE '=' || true)"
   if [[ -z "$bad" ]]; then
     ok "ghostty/config: every directive is a key = value line"
   else
