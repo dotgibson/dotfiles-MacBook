@@ -138,7 +138,7 @@ err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
 # section headers. WIRE_TOTAL is the count of step() sections in wire_links; bump it if
 # you add/remove one (a wrong total is cosmetic — it never affects what gets linked).
 WIRE_STEP=0
-WIRE_TOTAL=10
+WIRE_TOTAL=13
 step() {
   WIRE_STEP=$((WIRE_STEP + 1))
   ((QUIET)) || printf '%s==>%s %s[%d/%d]%s %s\n' "$c_b" "$c_0" "$c_y" "$WIRE_STEP" "$WIRE_TOTAL" "$c_0" "$*"
@@ -499,6 +499,19 @@ wire_links() {
   step "ghostty"
   link "$REPO/ghostty/config" "$CFG/ghostty/config"
 
+  # ── macOS desktop layer: tiling WM + menu bar + keyboard remap (GUI apps) ──
+  # All three read their config from ~/.config; none has machine-specific secrets, so they
+  # symlink straight from the repo. The apps themselves come from the Brewfile.
+  step "aerospace (tiling WM)"
+  link "$REPO/aerospace/aerospace.toml" "$CFG/aerospace/aerospace.toml"
+
+  step "sketchybar (menu bar)"
+  link "$REPO/sketchybar" "$CFG/sketchybar" # sketchybarrc + colors.sh + plugins/
+  run chmod +x "$REPO"/sketchybar/sketchybarrc "$REPO"/sketchybar/plugins/*.sh
+
+  step "karabiner (keyboard)"
+  link "$REPO/karabiner/karabiner.json" "$CFG/karabiner/karabiner.json"
+
   step "ssh"
   if [[ -f "$REPO/ssh/config" ]]; then
     link "$REPO/ssh/config" "$HOME/.ssh/config"
@@ -582,6 +595,7 @@ uninstall() {
     "$CFG/nvim"
     "$HOME/.gitconfig" "$CFG/git/os.gitconfig" "$CFG/git/ignore"
     "$CFG/mise/config.toml" "$CFG/ghostty/config" "$HOME/.ssh/config"
+    "$CFG/aerospace/aerospace.toml" "$CFG/sketchybar" "$CFG/karabiner/karabiner.json"
   )
   local f
   for f in "$REPO"/core/zsh/*.zsh; do dests+=("$CFG/zsh/$(basename "$f")"); done

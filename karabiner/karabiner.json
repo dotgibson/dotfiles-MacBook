@@ -1,0 +1,102 @@
+{
+  "global": {
+    "show_in_menu_bar": false
+  },
+  "profiles": [
+    {
+      "name": "Default",
+      "selected": true,
+      "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" },
+      "complex_modifications": {
+        "parameters": {
+          "basic.simultaneous_threshold_milliseconds": 50,
+          "basic.to_if_alone_timeout_milliseconds": 200,
+          "basic.to_if_held_down_threshold_milliseconds": 200
+        },
+        "rules": [
+          {
+            "description": "Caps Lock → Control (held) / Escape (tapped)",
+            "manipulators": [
+              {
+                "type": "basic",
+                "from": {
+                  "key_code": "caps_lock",
+                  "modifiers": { "optional": ["any"] }
+                },
+                "to": [{ "key_code": "left_control", "lazy": true }],
+                "to_if_alone": [{ "key_code": "escape" }]
+              }
+            ]
+          },
+          {
+            "description": "Tab → Hyper layer (held) / Tab (tapped)",
+            "manipulators": [
+              {
+                "type": "basic",
+                "from": {
+                  "key_code": "tab",
+                  "modifiers": { "optional": ["any"] }
+                },
+                "to": [{ "set_variable": { "name": "hyper", "value": 1 } }],
+                "to_after_key_up": [{ "set_variable": { "name": "hyper", "value": 0 } }],
+                "to_if_alone": [{ "key_code": "tab" }]
+              }
+            ]
+          },
+          {
+            "description": "Hyper layer — AeroSpace focus (hjkl) + fullscreen (f)",
+            "manipulators": [
+              {
+                "type": "basic",
+                "from": { "key_code": "h" },
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus left" }],
+                "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
+              },
+              {
+                "type": "basic",
+                "from": { "key_code": "j" },
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus down" }],
+                "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
+              },
+              {
+                "type": "basic",
+                "from": { "key_code": "k" },
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus up" }],
+                "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
+              },
+              {
+                "type": "basic",
+                "from": { "key_code": "l" },
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus right" }],
+                "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
+              },
+              {
+                "type": "basic",
+                "from": { "key_code": "f" },
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace fullscreen" }],
+                "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
+              }
+            ]
+          },
+          {
+            "description": "Hyper layer — app launchers (t: terminal, b: browser)",
+            "manipulators": [
+              {
+                "type": "basic",
+                "from": { "key_code": "t" },
+                "to": [{ "shell_command": "open -na Ghostty" }],
+                "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
+              },
+              {
+                "type": "basic",
+                "from": { "key_code": "b" },
+                "to": [{ "shell_command": "open -a Safari" }],
+                "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

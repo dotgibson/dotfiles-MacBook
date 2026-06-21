@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# ================================================================================================
+# sketchybar — programmable macOS menu bar (https://github.com/FelixKratz/SketchyBar)
+# The macOS analog of this repo's hand-rolled tmux status bar (core/tmux): a plugin invoked per
+# event, with one palette in colors.sh. Themed tokyonight-storm to match starship/tmux/lazygit.
+# Icons use the already-installed CaskaydiaCove Nerd Font — no sketchybar-app-font dependency.
+# ================================================================================================
+
+CONFIG_DIR="$HOME/.config/sketchybar"
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+# shellcheck source=/dev/null
+source "$CONFIG_DIR/colors.sh"
+
+FONT="CaskaydiaCove Nerd Font"
+
+# ── Bar ─────────────────────────────────────────────────────────────────────────────────────
+sketchybar --bar \
+  height=32 \
+  position=top \
+  padding_left=8 \
+  padding_right=8 \
+  color="$BAR_COLOR" \
+  corner_radius=9 \
+  y_offset=4 \
+  margin=8 \
+  blur_radius=20
+
+# ── Defaults shared by every item ───────────────────────────────────────────────────────────
+sketchybar --default \
+  updates=when_shown \
+  icon.font="$FONT:Bold:15.0" \
+  icon.color="$FG" \
+  label.font="$FONT:Semibold:13.0" \
+  label.color="$FG" \
+  background.color="$BG" \
+  background.corner_radius=6 \
+  background.height=22 \
+  padding_left=4 \
+  padding_right=4 \
+  label.padding_left=4 \
+  label.padding_right=8 \
+  icon.padding_left=8 \
+  icon.padding_right=4
+
+# ── Left: AeroSpace workspaces ──────────────────────────────────────────────────────────────
+# Custom event triggered by aerospace.toml's exec-on-workspace-change (FOCUSED_WORKSPACE=…).
+sketchybar --add event aerospace_workspace_change
+
+for sid in 1 2 3 4 5; do
+  sketchybar --add item "space.$sid" left \
+    --set "space.$sid" \
+    label="$sid" \
+    icon.drawing=off \
+    background.drawing=off \
+    script="$PLUGIN_DIR/aerospace.sh" \
+    --subscribe "space.$sid" aerospace_workspace_change
+done
+
+# ── Left: front app name ────────────────────────────────────────────────────────────────────
+sketchybar --add item front_app left \
+  --set front_app \
+  icon.drawing=off \
+  label.color="$ACCENT" \
+  label.font="$FONT:Bold:13.0" \
+  script="$PLUGIN_DIR/front_app.sh" \
+  --subscribe front_app front_app_switched
+
+# ── Right: clock, battery, volume (right-to-left order) ──────────────────────────────────────
+sketchybar --add item clock right \
+  --set clock \
+  icon="󰥔" \
+  update_freq=10 \
+  script="$PLUGIN_DIR/clock.sh"
+
+sketchybar --add item battery right \
+  --set battery \
+  update_freq=120 \
+  script="$PLUGIN_DIR/battery.sh" \
+  --subscribe battery system_woke power_source_change
+
+sketchybar --add item volume right \
+  --set volume \
+  script="$PLUGIN_DIR/volume.sh" \
+  --subscribe volume volume_change
+
+# ── Finalize ────────────────────────────────────────────────────────────────────────────────
+sketchybar --update
+
+# Paint the initial workspace highlight (sketchybar starts before any change event fires).
+if command -v aerospace >/dev/null 2>&1; then
+  sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE="$(aerospace list-workspaces --focused 2>/dev/null)"
+fi
