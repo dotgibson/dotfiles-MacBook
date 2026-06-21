@@ -1,0 +1,86 @@
+# ================================================================================================
+# AeroSpace — i3-like tiling window manager for macOS (https://github.com/nikitabobko/AeroSpace)
+# Chosen over yabai: pure config, no SIP disable, no scripting-addition daemon. Fits the
+# "declarative, committed-as-code" model of this repo. Symlinked to ~/.config/aerospace/.
+#
+# Modifier convention: alt (⌥) is the WM modifier here. Ghostty sets macos-option-as-alt=true,
+# so alt bindings never collide with terminal accent input. The Karabiner Tab-hyper "window"
+# layer (karabiner/karabiner.json) is the ergonomic alternative to these alt chords.
+# ================================================================================================
+
+# Run sketchybar on startup so the bar is up even if launchd ordering races.
+after-startup-command = ['exec-and-forget sketchybar']
+
+# Notify sketchybar on workspace change so the spaces widget repaints (see sketchybar/plugins).
+exec-on-workspace-change = [
+  '/bin/bash', '-c',
+  'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
+]
+
+start-at-login = true
+
+# ── Layout & gaps ───────────────────────────────────────────────────────────────────────────
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto' # widescreen → horizontal, tall → vertical
+accordion-padding = 30
+
+[gaps]
+inner.horizontal = 8
+inner.vertical = 8
+outer.left = 8
+outer.right = 8
+outer.bottom = 8
+outer.top = 8 # bump this if the sketchybar bar overlaps tiled windows
+
+# ── Normalization ───────────────────────────────────────────────────────────────────────────
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+# ── Main mode keybindings ───────────────────────────────────────────────────────────────────
+[mode.main.binding]
+# Focus (vim hjkl)
+alt-h = 'focus left'
+alt-j = 'focus down'
+alt-k = 'focus up'
+alt-l = 'focus right'
+
+# Move the focused window
+alt-shift-h = 'move left'
+alt-shift-j = 'move down'
+alt-shift-k = 'move up'
+alt-shift-l = 'move right'
+
+# Resize
+alt-minus = 'resize smart -50'
+alt-equal = 'resize smart +50'
+
+# Layout toggles
+alt-slash = 'layout tiles horizontal vertical'
+alt-comma = 'layout accordion horizontal vertical'
+alt-f = 'fullscreen'
+
+# Workspaces 1–5 (extend as needed)
+alt-1 = 'workspace 1'
+alt-2 = 'workspace 2'
+alt-3 = 'workspace 3'
+alt-4 = 'workspace 4'
+alt-5 = 'workspace 5'
+
+# Move focused window to workspace (then follow it)
+alt-shift-1 = ['move-node-to-workspace 1', 'workspace 1']
+alt-shift-2 = ['move-node-to-workspace 2', 'workspace 2']
+alt-shift-3 = ['move-node-to-workspace 3', 'workspace 3']
+alt-shift-4 = ['move-node-to-workspace 4', 'workspace 4']
+alt-shift-5 = ['move-node-to-workspace 5', 'workspace 5']
+
+# Back-and-forth to previous workspace
+alt-tab = 'workspace-back-and-forth'
+
+# Enter a transient "service" mode for the less-common actions
+alt-shift-semicolon = 'mode service'
+
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+r = ['flatten-workspace-tree', 'mode main'] # reset the tree to a sane layout
+f = ['layout floating tiling', 'mode main'] # toggle floating for the focused window
+backspace = ['close-all-windows-but-current', 'mode main']

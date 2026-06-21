@@ -106,6 +106,12 @@ brew "navi"          # interactive fzf-driven cheatsheets (os/macos.zsh aliases 
 # NOTE: tealdeer / mas / trash are declared once above (Modern CLI / Mac App Store /
 # File management). Duplicate declarations were removed — brew bundle is happy with one.
 #
+# ── Window management & keyboard (macOS desktop layer) ──────────────────────────
+# Fully-qualified names auto-tap on install — no separate `tap` lines needed.
+cask "nikitabobko/tap/aerospace"          # tiling WM, TOML-configured, no SIP disable (config: aerospace/)
+brew "FelixKratz/formulae/sketchybar"     # programmable menu bar (config: sketchybar/)
+cask "karabiner-elements"                 # keyboard remap: Caps→Ctrl/Esc + Tab-hyper layers (config: karabiner/)
+
 # ── 1Password ─────────────────────────────────────────────────────────────────
 cask "1password"
 cask "1password-cli"
