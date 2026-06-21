@@ -506,7 +506,7 @@ wire_links() {
   link "$REPO/aerospace/aerospace.toml" "$CFG/aerospace/aerospace.toml"
 
   step "sketchybar (menu bar)"
-  link "$REPO/sketchybar" "$CFG/sketchybar" # sketchybarrc + colors.sh + plugins/ + items/
+  link "$REPO/sketchybar" "$CFG/sketchybar" # sketchybarrc + colors.sh + plugins/
   run chmod +x "$REPO"/sketchybar/sketchybarrc "$REPO"/sketchybar/plugins/*.sh
 
   step "karabiner (keyboard)"

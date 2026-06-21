@@ -49,31 +49,31 @@
               {
                 "type": "basic",
                 "from": { "key_code": "h" },
-                "to": [{ "shell_command": "/opt/homebrew/bin/aerospace focus left" }],
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus left" }],
                 "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
               },
               {
                 "type": "basic",
                 "from": { "key_code": "j" },
-                "to": [{ "shell_command": "/opt/homebrew/bin/aerospace focus down" }],
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus down" }],
                 "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
               },
               {
                 "type": "basic",
                 "from": { "key_code": "k" },
-                "to": [{ "shell_command": "/opt/homebrew/bin/aerospace focus up" }],
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus up" }],
                 "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
               },
               {
                 "type": "basic",
                 "from": { "key_code": "l" },
-                "to": [{ "shell_command": "/opt/homebrew/bin/aerospace focus right" }],
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace focus right" }],
                 "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
               },
               {
                 "type": "basic",
                 "from": { "key_code": "f" },
-                "to": [{ "shell_command": "/opt/homebrew/bin/aerospace fullscreen" }],
+                "to": [{ "shell_command": "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH aerospace fullscreen" }],
                 "conditions": [{ "type": "variable_if", "name": "hyper", "value": 1 }]
               }
             ]
