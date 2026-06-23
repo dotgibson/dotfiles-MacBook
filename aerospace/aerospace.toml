@@ -34,7 +34,7 @@ inner.vertical = 8
 outer.left = 8
 outer.right = 8
 outer.bottom = 8
-outer.top = 8 # bump this if the sketchybar bar overlaps tiled windows
+outer.top = 44 # clears the sketchybar bar (y_offset 4 + height 32 + 8 gap); bump if it still overlaps
 
 # ── Main mode keybindings ───────────────────────────────────────────────────────────────────
 [mode.main.binding]
