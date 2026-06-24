@@ -87,7 +87,13 @@ on-window-detected = [
 inner.horizontal = 8
 inner.vertical = 8
 outer.bottom = 5
-outer.top = [{ monitor."built-in" = 10 }, { monitor."main" = 45 }, 45]
+# Top gap reserves the strip SketchyBar floats in. It must clear the bar's full footprint
+# (sketchybarrc: y_offset 4 + height 40 = 44px) on EVERY display, because the macOS menu bar is
+# set to auto-hide ("Always"), so the system reserves no top strip of its own. A flat 48 keeps
+# windows just below the bar with a little breathing room. (The old per-monitor value gave the
+# built-in display only 10px — fine when the menu bar was visible, but it let windows slide under
+# the bar once the menu bar was hidden.)
+outer.top = 48
 outer.right = 5
 outer.left = 5
 
