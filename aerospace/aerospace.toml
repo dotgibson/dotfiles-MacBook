@@ -136,11 +136,10 @@ alt-tab = 'workspace-back-and-forth'
 # Throw the current workspace to the next monitor (multi-display)
 alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
 
-# New Ghostty window right here (i3's alt-enter), without stealing focus to an existing one
-alt-enter = '''exec-and-forget osascript -e '
-tell application "Ghostty" to activate
-tell application "System Events" to keystroke "n" using command down'
-'''
+# Open a new Ghostty window (`open -n` forces a fresh instance rather than just
+# refocusing an existing one). Single-line on purpose: AeroSpace's TOML parser
+# (TOMLDecoder) does not accept multi-line '''…''' literal strings.
+alt-enter = 'exec-and-forget open -na Ghostty'
 
 # Screenshot a region straight to the clipboard
 alt-shift-s = 'exec-and-forget screencapture -i -c'
