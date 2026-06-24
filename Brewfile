@@ -110,6 +110,7 @@ brew "navi"          # interactive fzf-driven cheatsheets (os/macos.zsh aliases 
 # Fully-qualified names auto-tap on install — no separate `tap` lines needed.
 cask "nikitabobko/tap/aerospace"          # tiling WM, TOML-configured, no SIP disable (config: aerospace/)
 brew "FelixKratz/formulae/sketchybar"     # programmable menu bar (config: sketchybar/)
+brew "FelixKratz/formulae/borders"        # JankyBorders — focused-window ring (aerospace after-startup-command)
 cask "karabiner-elements"                 # keyboard remap: Caps→Ctrl/Esc + Tab-hyper layers (config: karabiner/)
 
 # ── 1Password ─────────────────────────────────────────────────────────────────

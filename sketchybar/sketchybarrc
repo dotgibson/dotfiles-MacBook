@@ -26,6 +26,8 @@ sketchybar --bar \
   blur_radius=20
 
 # ── Defaults shared by every item ───────────────────────────────────────────────────────────
+# A short slide animation makes every label/icon swap (workspace switches, volume, battery)
+# ease in instead of snapping — see plugins/aerospace.sh for the highlight transition.
 sketchybar --default \
   updates=on \
   icon.font="$FONT:Bold:17.0" \
@@ -40,10 +42,24 @@ sketchybar --default \
   label.padding_left=4 \
   label.padding_right=4 \
   icon.padding_left=4 \
-  icon.padding_right=4
+  icon.padding_right=4 \
+  animation_curve=sin \
+  animation_duration=15
+
+# ── Left: brand anchor ──────────────────────────────────────────────────────────────────────
+# Apple glyph; click reloads the bar (handy after editing this file).
+sketchybar --add item logo left \
+  --set logo \
+  icon="" \
+  icon.font="$FONT:Bold:18.0" \
+  icon.color="$ACCENT" \
+  label.drawing=off \
+  background.drawing=off \
+  click_script="sketchybar --reload"
 
 # ── Left: AeroSpace workspaces ──────────────────────────────────────────────────────────────
 # Custom event triggered by aerospace.toml's exec-on-workspace-change (FOCUSED_WORKSPACE=…).
+# Clicking a number jumps to that workspace (aerospace workspace <id>).
 sketchybar --add event aerospace_workspace_change
 
 for sid in 1 2 3 4 5; do
@@ -52,9 +68,17 @@ for sid in 1 2 3 4 5; do
     label="$sid" \
     icon.drawing=off \
     background.drawing=off \
+    click_script="aerospace workspace $sid" \
     script="$PLUGIN_DIR/aerospace.sh" \
     --subscribe "space.$sid" aerospace_workspace_change
 done
+
+# Group the workspace numbers inside a single rounded container.
+sketchybar --add bracket spaces '/space\..*/' \
+  --set spaces \
+  background.color="$BG" \
+  background.corner_radius=8 \
+  background.height=26
 
 # ── Left: front app name ────────────────────────────────────────────────────────────────────
 sketchybar --add item front_app left \
@@ -65,7 +89,7 @@ sketchybar --add item front_app left \
   script="$PLUGIN_DIR/front_app.sh" \
   --subscribe front_app front_app_switched
 
-# ── Right: clock, battery, volume (right-to-left order) ──────────────────────────────────────
+# ── Right: clock, battery, volume, cpu (right-to-left order) ─────────────────────────────────
 sketchybar --add item clock right \
   --set clock \
   icon="󰥔" \
@@ -82,6 +106,13 @@ sketchybar --add item volume right \
   --set volume \
   script="$PLUGIN_DIR/volume.sh" \
   --subscribe volume volume_change
+
+# CPU load, colored green→yellow→red. Dependency-free (reads macOS `top`).
+sketchybar --add item cpu right \
+  --set cpu \
+  icon="" \
+  update_freq=5 \
+  script="$PLUGIN_DIR/cpu.sh"
 
 # ── Finalize ────────────────────────────────────────────────────────────────────────────────
 sketchybar --update
