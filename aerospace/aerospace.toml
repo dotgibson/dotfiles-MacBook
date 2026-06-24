@@ -13,7 +13,8 @@ after-startup-command = ['exec-and-forget sketchybar']
 
 # Notify sketchybar on workspace change so the spaces widget repaints (see sketchybar/plugins).
 exec-on-workspace-change = [
-  '/bin/bash', '-c',
+  '/bin/bash',
+  '-c',
   'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
 ]
 
@@ -26,15 +27,15 @@ enable-normalization-opposite-orientation-for-nested-containers = true
 # ── Layout & gaps ───────────────────────────────────────────────────────────────────────────
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto' # widescreen → horizontal, tall → vertical
-accordion-padding = 30
+accordion-padding = 0
 
 [gaps]
 inner.horizontal = 8
 inner.vertical = 8
-outer.left = 8
-outer.right = 8
-outer.bottom = 8
-outer.top = 44 # clears the sketchybar bar (y_offset 4 + height 32 + 8 gap); bump if it still overlaps
+outer.bottom = 5
+outer.top = [{ monitor."built-in" = 10 }, { monitor."main" = 45 }, 45]
+outer.right = 5
+outer.left = 5
 
 # ── Main mode keybindings ───────────────────────────────────────────────────────────────────
 [mode.main.binding]
@@ -82,5 +83,8 @@ alt-shift-semicolon = 'mode service'
 [mode.service.binding]
 esc = ['reload-config', 'mode main']
 r = ['flatten-workspace-tree', 'mode main'] # reset the tree to a sane layout
-f = ['layout floating tiling', 'mode main'] # toggle floating for the focused window
+f = [
+  'layout floating tiling',
+  'mode main',
+] # toggle floating for the focused window
 backspace = ['close-all-windows-but-current', 'mode main']

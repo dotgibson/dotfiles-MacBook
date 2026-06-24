@@ -15,7 +15,7 @@ FONT="CaskaydiaCove Nerd Font"
 
 # ── Bar ─────────────────────────────────────────────────────────────────────────────────────
 sketchybar --bar \
-  height=32 \
+  height=40 \
   position=top \
   padding_left=8 \
   padding_right=8 \
@@ -27,19 +27,19 @@ sketchybar --bar \
 
 # ── Defaults shared by every item ───────────────────────────────────────────────────────────
 sketchybar --default \
-  updates=when_shown \
-  icon.font="$FONT:Bold:15.0" \
+  updates=on \
+  icon.font="$FONT:Bold:17.0" \
   icon.color="$FG" \
-  label.font="$FONT:Semibold:13.0" \
+  label.font="$FONT:Semibold:17.0" \
   label.color="$FG" \
   background.color="$BG" \
   background.corner_radius=6 \
-  background.height=22 \
-  padding_left=4 \
-  padding_right=4 \
+  background.height=15 \
+  padding_left=5 \
+  padding_right=5 \
   label.padding_left=4 \
-  label.padding_right=8 \
-  icon.padding_left=8 \
+  label.padding_right=4 \
+  icon.padding_left=4 \
   icon.padding_right=4
 
 # ── Left: AeroSpace workspaces ──────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ sketchybar --add item front_app left \
   --set front_app \
   icon.drawing=off \
   label.color="$ACCENT" \
-  label.font="$FONT:Bold:13.0" \
+  label.font="$FONT:Bold:16.0" \
   script="$PLUGIN_DIR/front_app.sh" \
   --subscribe front_app front_app_switched
 
