@@ -13,9 +13,10 @@
 # syntax, and forward-compatible deprecation handling. (Omitting this pins you to legacy v1.)
 config-version = 2
 
-# Reload the config automatically whenever this file is saved — no manual `mode service → esc`.
-# (Reload once by hand the first time to arm the watcher.)
-auto-reload-config = true
+# NOTE: `auto-reload-config` is intentionally omitted — it isn't recognized by all released
+# AeroSpace versions (older binaries reject it as an "Unknown top-level key" and fail to parse
+# the whole file). Reload manually instead: service mode (alt-shift-; then esc) or
+# `aerospace reload-config`.
 
 # Start AeroSpace at login.
 start-at-login = true
