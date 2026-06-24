@@ -14,4 +14,6 @@ case "$VOLUME" in
 *) ICON="󰕾" ;;
 esac
 
-sketchybar --set "$NAME" icon="$ICON" icon.color="$CYAN" label="${VOLUME}%"
+# Color the glyph and the percentage together — the same single-accent pill style the tmux
+# status segments use (cyan = @tn_cyan).
+sketchybar --set "$NAME" icon="$ICON" icon.color="$CYAN" label="${VOLUME}%" label.color="$CYAN"
