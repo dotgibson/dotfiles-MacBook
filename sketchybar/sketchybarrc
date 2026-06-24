@@ -89,26 +89,37 @@ sketchybar --add item front_app left \
   script="$PLUGIN_DIR/front_app.sh" \
   --subscribe front_app front_app_switched
 
-# ── Right: clock, battery, volume, cpu (right-to-left order) ─────────────────────────────────
-# Magenta to match the tmux status-right clock pill (core/tmux/tmux.conf: 󰥔 %H:%M in @tn_magenta).
-sketchybar --add item clock right \
-  --set clock \
-  icon="󰥔" \
-  icon.color="$MAGENTA" \
-  label.color="$MAGENTA" \
-  update_freq=10 \
-  script="$PLUGIN_DIR/clock.sh"
+# ── Right: system stats + keep-awake toggle (added right-to-left) ────────────────────────────
+# Battery + clock are intentionally omitted — they live in the tmux status bar, so showing them
+# here too would just duplicate. Items are added first=rightmost, so the visual left→right order
+# ends up: volume · cpu · memory · disk · network · ☕toggle.
 
-sketchybar --add item battery right \
-  --set battery \
-  update_freq=120 \
-  script="$PLUGIN_DIR/battery.sh" \
-  --subscribe battery system_woke power_source_change
+# Keep-awake toggle (far-right corner): click the cup to block display + idle system sleep, click
+# again to release. A free Amphetamine — see plugins/caffeinate.sh.
+sketchybar --add item caffeinate right \
+  --set caffeinate \
+  label.drawing=off \
+  update_freq=30 \
+  click_script="$PLUGIN_DIR/caffeinate.sh toggle" \
+  script="$PLUGIN_DIR/caffeinate.sh"
 
-sketchybar --add item volume right \
-  --set volume \
-  script="$PLUGIN_DIR/volume.sh" \
-  --subscribe volume volume_change
+# Network throughput ↓/↑ for the default interface (sampled from netstat between runs).
+sketchybar --add item network right \
+  --set network \
+  update_freq=3 \
+  script="$PLUGIN_DIR/network.sh"
+
+# Free disk space on /, colored when it runs low (reads df).
+sketchybar --add item disk right \
+  --set disk \
+  update_freq=60 \
+  script="$PLUGIN_DIR/disk.sh"
+
+# RAM pressure, colored green→yellow→red by load (reads memory_pressure).
+sketchybar --add item memory right \
+  --set memory \
+  update_freq=15 \
+  script="$PLUGIN_DIR/memory.sh"
 
 # CPU load, colored green→yellow→red. Dependency-free (reads macOS `top`).
 sketchybar --add item cpu right \
@@ -116,6 +127,12 @@ sketchybar --add item cpu right \
   icon="" \
   update_freq=5 \
   script="$PLUGIN_DIR/cpu.sh"
+
+# Output volume (leftmost of the cluster); cyan to match @tn_cyan.
+sketchybar --add item volume right \
+  --set volume \
+  script="$PLUGIN_DIR/volume.sh" \
+  --subscribe volume volume_change
 
 # ── Finalize ────────────────────────────────────────────────────────────────────────────────
 sketchybar --update
