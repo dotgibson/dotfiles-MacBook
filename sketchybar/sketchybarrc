@@ -94,8 +94,8 @@ sketchybar --add item front_app left \
 # here too would just duplicate. Items are added first=rightmost, so the visual left→right order
 # ends up: volume · cpu · memory · disk · network · ☕toggle.
 
-# Keep-awake toggle (far-right corner): click the cup to block display/system sleep, click again
-# to release. A free Amphetamine — see plugins/caffeinate.sh.
+# Keep-awake toggle (far-right corner): click the cup to block display + idle system sleep, click
+# again to release. A free Amphetamine — see plugins/caffeinate.sh.
 sketchybar --add item caffeinate right \
   --set caffeinate \
   label.drawing=off \
