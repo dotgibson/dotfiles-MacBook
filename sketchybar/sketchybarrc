@@ -50,7 +50,7 @@ sketchybar --default \
 # Apple glyph; click reloads the bar (handy after editing this file).
 sketchybar --add item logo left \
   --set logo \
-  icon="" \
+  icon="" \
   icon.font="$FONT:Bold:18.0" \
   icon.color="$ACCENT" \
   label.drawing=off \
@@ -110,7 +110,7 @@ sketchybar --add item volume right \
 # CPU load, colored green→yellow→red. Dependency-free (reads macOS `top`).
 sketchybar --add item cpu right \
   --set cpu \
-  icon="" \
+  icon="" \
   update_freq=5 \
   script="$PLUGIN_DIR/cpu.sh"
 

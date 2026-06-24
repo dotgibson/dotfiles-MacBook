@@ -18,4 +18,4 @@ case "$LOAD" in
 *) COLOR="$RED" ;;
 esac
 
-sketchybar --set "$NAME" drawing=on icon.color="$COLOR" label="${LOAD}%"
+sketchybar --set "$NAME" drawing=on label.color="$COLOR" label="${LOAD}%"
