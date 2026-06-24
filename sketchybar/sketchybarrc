@@ -90,9 +90,12 @@ sketchybar --add item front_app left \
   --subscribe front_app front_app_switched
 
 # ── Right: clock, battery, volume, cpu (right-to-left order) ─────────────────────────────────
+# Magenta to match the tmux status-right clock pill (core/tmux/tmux.conf: 󰥔 %H:%M in @tn_magenta).
 sketchybar --add item clock right \
   --set clock \
   icon="󰥔" \
+  icon.color="$MAGENTA" \
+  label.color="$MAGENTA" \
   update_freq=10 \
   script="$PLUGIN_DIR/clock.sh"
 

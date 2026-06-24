@@ -18,4 +18,5 @@ case "$LOAD" in
 *) COLOR="$RED" ;;
 esac
 
-sketchybar --set "$NAME" drawing=on label.color="$COLOR" label="${LOAD}%"
+# Color glyph + percentage together (single-accent pill, matching the tmux-style segments).
+sketchybar --set "$NAME" drawing=on icon.color="$COLOR" label.color="$COLOR" label="${LOAD}%"

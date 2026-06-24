@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Battery percentage + a charge-aware Nerd Font glyph, colored by level. Self-hides on desktop
 # Macs (Mac mini / Studio / iMac) that report no battery.
+#
+# Kept in lockstep with the tmux status bar (core/tmux/scripts/tmux-battery.sh): same three-tier
+# thresholds (>=60 green / >=20 yellow / <20 red), same glyphs (󰂁/󰁾/󰁻, charging 󰂄 keeping the
+# level color), so a given charge looks identical in both bars.
 # shellcheck source=/dev/null
 source "$HOME/.config/sketchybar/colors.sh"
 
@@ -12,17 +16,20 @@ if [ -z "$PERCENT" ]; then
   exit 0
 fi
 
-if [ -n "$CHARGING" ]; then
-  ICON="󰂄"
+# Color + glyph by level (numeric compare, matching tmux-battery.sh).
+if [ "$PERCENT" -ge 60 ]; then
   COLOR="$GREEN"
+  ICON="󰂁"
+elif [ "$PERCENT" -ge 20 ]; then
+  COLOR="$YELLOW"
+  ICON="󰁾"
 else
-  case "$PERCENT" in
-  100 | 9[0-9]) ICON="󰁹" COLOR="$GREEN" ;;
-  8[0-9] | 7[0-9] | 6[0-9]) ICON="󰂁" COLOR="$FG" ;;
-  5[0-9] | 4[0-9] | 3[0-9]) ICON="󰁾" COLOR="$YELLOW" ;;
-  2[0-9]) ICON="󰁻" COLOR="$YELLOW" ;;
-  *) ICON="󰁺" COLOR="$RED" ;;
-  esac
+  COLOR="$RED"
+  ICON="󰁻"
 fi
 
-sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$COLOR" label="${PERCENT}%"
+# Charging swaps only the glyph; the level color carries through (as in tmux).
+[ -n "$CHARGING" ] && ICON="󰂄"
+
+# Color both the glyph and the percentage, like the tmux pill's single-accent text.
+sketchybar --set "$NAME" drawing=on icon="$ICON" icon.color="$COLOR" label="${PERCENT}%" label.color="$COLOR"
