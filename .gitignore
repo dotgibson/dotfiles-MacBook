@@ -2,9 +2,9 @@
 .claude/
 # machine-specific shell overrides (never synced; sourced last by .zshrc)
 zsh/local.zsh
-# Core is a vendored git-subtree under core/ and IS tracked. But the nvim plugin
-# lockfile is environment-specific churn — let each machine resolve it itself.
-core/nvim/lazy-lock.json
+# Core is a vendored git-subtree under core/ and IS tracked — including the nvim
+# lazy-lock.json, which is owned by dotfiles-core so every machine pins the same
+# plugin set. Bump it upstream (make update-nvim-plugins) and re-sync, never here.
 # noise / secrets
 *.log
 *.bak
