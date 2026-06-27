@@ -26,6 +26,9 @@ UNINSTALL=0
 DRY=0
 QUIET=0
 JSON=0
+# --only/--skip module selection: captured here, validated by the shared lib
+# (blib_select) once core/lib/bootstrap-lib.sh is sourced below.
+ONLY_RAW="" SKIP_RAW="" ONLY_SEEN=0 SKIP_SEEN=0
 
 # usage() is a real function (heredoc) rather than `sed -n '2,18p' "$0"`: the old
 # form was coupled to header line numbers, so editing the banner silently drifted
@@ -39,6 +42,8 @@ bootstrap.sh — idempotent macOS provision + symlink wiring. Safe to re-run.
   ./bootstrap.sh --no-brew        symlinks + mise, skip Homebrew/brew bundle
   ./bootstrap.sh --macos-defaults also run macos/defaults.sh (system prefs)
   ./bootstrap.sh --set-shell      make Homebrew zsh the login shell (chsh)
+  ./bootstrap.sh --only zsh,nvim  link ONLY these Core module groups (zsh nvim tmux git prompt tools)
+  ./bootstrap.sh --skip tmux      link everything EXCEPT these Core module groups
   ./bootstrap.sh --uninstall      remove Core symlinks + restore backed-up files
   ./bootstrap.sh --dry-run, -n    print every planned action; change nothing
   ./bootstrap.sh --quiet, -q      show only CHANGES + the summary (quiet re-runs)
@@ -58,7 +63,7 @@ EOF
 # via _core_suggest, instead of a bare usage dump. Heuristic, no external deps:
 # compare HYPHEN-NORMALISED forms (so `--dryrun` ≈ `--dry-run`) and accept an exact
 # match, a prefix either way, or a shared 4+ char stem. Silent when nothing's close.
-KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --uninstall --dry-run -n --quiet -q --json -h --help)
+KNOWN_FLAGS=(--links-only --no-brew --macos-defaults --set-shell --only --skip --uninstall --dry-run -n --quiet -q --json -h --help)
 suggest() {
   local in="${1#--}" f cand n=0
   [[ -z "$in" || "$in" == "$1" ]] && return 0 # only guess for --long typos
@@ -77,7 +82,8 @@ suggest() {
   done
 }
 
-for a in "$@"; do case "$a" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
   --links-only) LINKS_ONLY=1 ;;
   --no-brew) NO_BREW=1 ;;
   --macos-defaults) RUN_DEFAULTS=1 ;;
@@ -86,18 +92,47 @@ for a in "$@"; do case "$a" in
   --dry-run | -n) DRY=1 ;;
   --quiet | -q) QUIET=1 ;;
   --json) JSON=1 QUIET=1 ;; # machine-readable summary on stdout; implies quiet for the body
+  # --only/--skip take a value (the lib's blib_select validates it after sourcing).
+  --only)
+    [[ $# -ge 2 ]] || {
+      echo "--only requires module names, e.g. --only zsh,nvim" >&2
+      exit 2
+    }
+    ONLY_RAW="$2"
+    ONLY_SEEN=1
+    shift
+    ;;
+  --only=*)
+    ONLY_RAW="${1#*=}"
+    ONLY_SEEN=1
+    ;;
+  --skip)
+    [[ $# -ge 2 ]] || {
+      echo "--skip requires module names, e.g. --skip tmux" >&2
+      exit 2
+    }
+    SKIP_RAW="$2"
+    SKIP_SEEN=1
+    shift
+    ;;
+  --skip=*)
+    SKIP_RAW="${1#*=}"
+    SKIP_SEEN=1
+    ;;
   -h | --help)
     usage
     exit 0
     ;;
   *)
-    echo "unknown flag: $a" >&2
-    s="$(suggest "$a")"
+    echo "unknown flag: $1" >&2
+    s="$(suggest "$1")"
     [[ -n "$s" ]] && echo "did you mean $s?" >&2
     usage >&2
     exit 2 # usage error (the convention the lint scripts use; 1 stays for real failures)
     ;;
-  esac done
+  esac
+  shift
+done
 
 # Palette + glyphs come from the VENDORED shared bash UX lib (core/lib/ux.sh) — ONE
 # definition across Core's bash layer (B5). A normal clone ALWAYS contains core/ (it's a
@@ -133,6 +168,11 @@ else
   printf 'bootstrap: core/lib/bootstrap-lib.sh is missing — the core/ subtree is incomplete.\n' >&2
   exit 1
 fi
+
+# Apply any --only/--skip module selection now the validator (blib_select) exists;
+# it aborts (exit 1) on a malformed selector or an unknown group.
+if ((ONLY_SEEN)); then blib_select --only "$ONLY_RAW"; fi
+if ((SKIP_SEEN)); then blib_select --skip "$SKIP_RAW"; fi
 
 # B7: in --json mode the ONLY thing on stdout must be the final summary object, so route
 # the entire human body (section headers, per-file lines, AND any subprocess output like
@@ -477,10 +517,14 @@ wire_links() {
   # zsh entry layer (ZDOTDIR model): ~/.zshenv sets ZDOTDIR; .zprofile/.zshrc live in
   # $ZDOTDIR. This repo symlinks its own entry files rather than using the scaffold's
   # generated-heredoc loader (blib_write_zshrc_loader) — a deliberate macOS difference.
-  step "zsh entry layer (ZDOTDIR model)"
-  link "$REPO/zsh/zshenv" "$HOME/.zshenv"
-  link "$REPO/zsh/zprofile" "$CFG/zsh/.zprofile"
-  link "$REPO/zsh/zshrc" "$CFG/zsh/.zshrc"
+  # The zsh entry layer rides with the zsh module group — skip it under --only/--skip
+  # when zsh isn't selected (there'd be no Core zsh modules for it to load).
+  if blib_want zsh; then
+    step "zsh entry layer (ZDOTDIR model)"
+    link "$REPO/zsh/zshenv" "$HOME/.zshenv"
+    link "$REPO/zsh/zprofile" "$CFG/zsh/.zprofile"
+    link "$REPO/zsh/zshrc" "$CFG/zsh/.zshrc"
+  fi
 
   step "git ignore (macOS)"
   # global gitignore; macos.zsh/.conf/.gitconfig are wired by blib_link_os_layer above.
