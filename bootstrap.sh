@@ -118,6 +118,22 @@ fi
 c_b=$UX_BLU c_g=$UX_GRN c_y=$UX_YEL c_r=$UX_RED c_0=$UX_RST
 G_OK=$UX_OK G_INFO=$UX_INFO G_ERR=$UX_ERR SPIN_FRAMES=$UX_SPIN_FRAMES
 
+# Shared bash PROVISIONING scaffold (vendored core/lib/bootstrap-lib.sh) — the ONE
+# definition of the Core→destination symlink MAP. wire_links delegates the Core surface
+# to blib_link_core so this repo stops re-listing it by hand (the exact drift that left
+# core/lazygit/config.yml + core/vim/vimrc unlinked here). Sourced after ux.sh so the
+# blib_* messages share the palette; REQUIRED like ux.sh (a clone always has core/).
+if [[ -r "$REPO/core/lib/bootstrap-lib.sh" ]]; then
+  # source=/dev/null (not the real path): `make shellcheck` here runs without -x, so a
+  # real-path directive would only yield SC1091 "not following"; /dev/null silences it,
+  # matching how ux.sh is sourced above.
+  # shellcheck source=/dev/null
+  source "$REPO/core/lib/bootstrap-lib.sh"
+else
+  printf 'bootstrap: core/lib/bootstrap-lib.sh is missing — the core/ subtree is incomplete.\n' >&2
+  exit 1
+fi
+
 # B7: in --json mode the ONLY thing on stdout must be the final summary object, so route
 # the entire human body (section headers, per-file lines, AND any subprocess output like
 # brew bundle) to stderr by pointing fd 1 there, saving the real stdout on fd 3. The JSON
@@ -138,7 +154,7 @@ err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
 # section headers. WIRE_TOTAL is the count of step() sections in wire_links; bump it if
 # you add/remove one (a wrong total is cosmetic — it never affects what gets linked).
 WIRE_STEP=0
-WIRE_TOTAL=13
+WIRE_TOTAL=7
 step() {
   WIRE_STEP=$((WIRE_STEP + 1))
   ((QUIET)) || printf '%s==>%s %s[%d/%d]%s %s\n' "$c_b" "$c_0" "$c_y" "$WIRE_STEP" "$WIRE_TOTAL" "$c_0" "$*"
@@ -432,76 +448,49 @@ set_login_shell() {
 wire_links() {
   local CFG="$HOME/.config"
   WIRE_STEP=0 # reset so the [k/N] counter is fresh even if wire_links is called twice
-  step "Core helper scripts -> ~/.local/bin"
-  link "$REPO/core/bin/clip" "$HOME/.local/bin/clip"
-  link "$REPO/core/bin/clip-paste" "$HOME/.local/bin/clip-paste"
-  run chmod +x "$REPO/core/bin/clip" "$REPO/core/bin/clip-paste"
 
-  # U2: name the bounded count up front so the module loop reads as finite work, not an
-  # open-ended stream of link lines.
-  local _zmods=("$REPO"/core/zsh/*.zsh)
-  step "zsh modules (${#_zmods[@]} Core modules)"
-  for f in "${_zmods[@]}"; do link "$f" "$CFG/zsh/$(basename "$f")"; done
-  link "$REPO/os/macos.zsh" "$CFG/zsh/os.zsh" # the macOS interactive layer
-  # entry layer (ZDOTDIR model): ~/.zshenv sets ZDOTDIR; .zprofile/.zshrc live in $ZDOTDIR
+  # The Core surface (clip helpers, zsh modules, tmux + tpm, starship, lazygit, nvim, vim,
+  # mise, git config + seeded identity, sesh seed, ssh) + the macOS os/ overlay
+  # (macos.zsh/.conf/.gitconfig) are wired by the SHARED scaffold core/lib/bootstrap-lib.sh
+  # — ONE definition the whole fleet uses, so a new Core file links here automatically
+  # instead of being re-listed by hand (the exact drift that left lazygit + vimrc unlinked
+  # in this repo). Map --dry-run onto BLIB_DRY so the scaffold previews and mutates nothing.
+  step "Core + macOS overlay (shared scaffold)"
+  # shellcheck disable=SC2034  # read by the sourced bootstrap-lib.sh (blib_* honor BLIB_DRY)
+  BLIB_DRY="$DRY"
+  BLIB_LINKED=0 BLIB_SEEDED=0 BLIB_BACKED=0 BLIB_SKIPPED=0
+  # blib_* are not --quiet-aware and conflate section headers with actionable messages
+  # (tpm clone failure, seeded-file notes, ssh wiring) on the same stream — so we do NOT
+  # redirect them away under --quiet: a /dev/null there would hide failures/changes too,
+  # not just headers. We accept the scaffold's couple of header lines leaking into a quiet
+  # run as the lesser evil. (In --json mode fd1 already points at stderr, so this output
+  # never reaches the JSON object on fd3 regardless.)
+  blib_link_core "$REPO" "$CFG"
+  blib_link_os_layer "$REPO" "$CFG" macos
+  # fold the scaffold's tallies into this run's summary so --json / print_summary stay accurate
+  n_linked=$((n_linked + BLIB_LINKED))
+  n_backed=$((n_backed + BLIB_BACKED))
+  n_seeded=$((n_seeded + BLIB_SEEDED))
+  n_skipped=$((n_skipped + BLIB_SKIPPED))
+
+  # ── macOS-only links the shared scaffold does NOT own ──────────────────────
+  # zsh entry layer (ZDOTDIR model): ~/.zshenv sets ZDOTDIR; .zprofile/.zshrc live in
+  # $ZDOTDIR. This repo symlinks its own entry files rather than using the scaffold's
+  # generated-heredoc loader (blib_write_zshrc_loader) — a deliberate macOS difference.
+  step "zsh entry layer (ZDOTDIR model)"
   link "$REPO/zsh/zshenv" "$HOME/.zshenv"
   link "$REPO/zsh/zprofile" "$CFG/zsh/.zprofile"
   link "$REPO/zsh/zshrc" "$CFG/zsh/.zshrc"
 
-  step "starship"
-  link "$REPO/core/starship/starship.toml" "$CFG/starship.toml" # starship's default path
-
-  step "tmux"
-  link "$REPO/core/tmux/tmux.conf" "$CFG/tmux/tmux.conf"
-  # FIX: tmux.conf's first line `source-file ~/.config/tmux/tmux.reset.conf` needs
-  # this link to exist. Without it, tmux errors on every start AND the prefix
-  # (set -g prefix C-a, which lives in reset.conf) silently stays at the default
-  # C-b — i.e. "prefix not working". This link was the missing piece.
-  link "$REPO/core/tmux/tmux.reset.conf" "$CFG/tmux/tmux.reset.conf"
-  link "$REPO/core/tmux/scripts" "$CFG/tmux/scripts" # popup + status scripts
-  run chmod +x "$REPO"/core/tmux/scripts/*.sh        # ensure they're runnable
-  link "$REPO/os/macos.conf" "$CFG/tmux/os.conf"     # @status_right_os bits (sourced by tmux.conf)
-  # tmux plugin manager (tpm) — clone once so the theme + resurrect/continuum
-  # load on first run. Plugins still need one install pass after tmux starts:
-  # `prefix+I` inside tmux, or headless: ~/.config/tmux/plugins/tpm/bin/install_plugins
-  local TPM_DIR="$CFG/tmux/plugins/tpm"
-  if [[ ! -d "$TPM_DIR" ]]; then
-    if ((DRY)); then
-      info "would clone tpm → ${TPM_DIR/#"$HOME"/\~}"
-    # if/then/else (not A && B || C): a failed `ok` must not trigger the clone-failed note
-    elif git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR"; then
-      ok "tpm cloned"
-    else
-      info "tpm clone failed — clone it manually, then run prefix+I in tmux"
-    fi
-  else
-    noop "tpm present"
-  fi
-
-  step "neovim"
-  link "$REPO/core/nvim" "$CFG/nvim"
-
-  step "git"
-  link "$REPO/core/git/gitconfig" "$HOME/.gitconfig"
-  link "$REPO/os/macos.gitconfig" "$CFG/git/os.gitconfig"
+  step "git ignore (macOS)"
+  # global gitignore; macos.zsh/.conf/.gitconfig are wired by blib_link_os_layer above.
   link "$REPO/os/macos.gitignore" "$CFG/git/ignore"
-  seed "$REPO/core/git/local.gitconfig.example" "$CFG/git/local.gitconfig" \
-    "set your name/email there (never tracked)"
-
-  step "mise"
-  link "$REPO/core/mise/config.toml" "$CFG/mise/config.toml"
-
-  step "sesh"
-  # seed (don't symlink) the portable sesh config; engagement layouts live in Kali.
-  seed "$REPO/core/sesh/sesh.toml.example" "$CFG/sesh/sesh.toml" \
-    "edit freely; not tracked from here"
 
   step "ghostty"
   link "$REPO/ghostty/config" "$CFG/ghostty/config"
 
   # ── macOS desktop layer: tiling WM + menu bar + keyboard remap (GUI apps) ──
-  # All three read their config from ~/.config; none has machine-specific secrets, so they
-  # symlink straight from the repo. The apps themselves come from the Brewfile.
+  # All read their config from ~/.config; the apps themselves come from the Brewfile.
   step "aerospace (tiling WM)"
   link "$REPO/aerospace/aerospace.toml" "$CFG/aerospace/aerospace.toml"
 
@@ -511,20 +500,6 @@ wire_links() {
 
   step "karabiner (keyboard)"
   link "$REPO/karabiner/karabiner.json" "$CFG/karabiner/karabiner.json"
-
-  step "ssh"
-  if [[ -f "$REPO/ssh/config" ]]; then
-    link "$REPO/ssh/config" "$HOME/.ssh/config"
-    run chmod 600 "$REPO/ssh/config"
-    # ssh/config uses ControlMaster with ControlPath ~/.ssh/sockets/%r@%h:%p, but ssh won't
-    # create that socket directory itself — without it the first connection fails with
-    # "ControlPath ... cannot create: No such file or directory" and multiplexing silently
-    # never works. Create it (700; control sockets must not be group/world-accessible).
-    run mkdir -p "$HOME/.ssh/sockets"
-    run chmod 700 "$HOME/.ssh/sockets"
-  else
-    info "no ssh/config in repo yet — skipping"
-  fi
 }
 
 # ── uninstall: reverse the symlink wiring + restore backups (B4) ──────────────
@@ -590,9 +565,9 @@ uninstall() {
   local -a dests=(
     "$HOME/.local/bin/clip" "$HOME/.local/bin/clip-paste"
     "$CFG/zsh/os.zsh" "$HOME/.zshenv" "$CFG/zsh/.zprofile" "$CFG/zsh/.zshrc"
-    "$CFG/starship.toml"
+    "$CFG/starship.toml" "$CFG/lazygit/config.yml"
     "$CFG/tmux/tmux.conf" "$CFG/tmux/tmux.reset.conf" "$CFG/tmux/scripts" "$CFG/tmux/os.conf"
-    "$CFG/nvim"
+    "$CFG/nvim" "$HOME/.vimrc"
     "$HOME/.gitconfig" "$CFG/git/os.gitconfig" "$CFG/git/ignore"
     "$CFG/mise/config.toml" "$CFG/ghostty/config" "$HOME/.ssh/config"
     "$CFG/aerospace/aerospace.toml" "$CFG/sketchybar" "$CFG/karabiner/karabiner.json"
