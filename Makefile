@@ -1,116 +1,78 @@
-# Makefile — single source of truth for lint/format. Humans and CI run the SAME
-# commands, so "passes locally" means "passes in CI".
-#
-# Scope: only repo-owned files. `core/` is a vendored git-subtree from
-# dotfiles-core and is linted in THAT repo's CI — reformatting it here would
-# fight the subtree. A non-blocking `core-advisory` target surfaces core/ findings
-# without gating. See README "Development".
-#
-# Quick start:  make lint   (run everything)   |   make fmt   (auto-format)
-
-SHELL := bash
+# Makefile — a discoverable façade over the existing entry points.
+# ──────────────────────────────────────────────────────────────────────────────
+# This adds NO logic: every target shells out to the real script (scripts/*.sh,
+# pre-commit), which stay the single source of truth. It exists so a newcomer can
+# type `make` and see how to lint, test, audit, and sync — instead of grepping the
+# README for scripts/ paths. The audit (`make audit`) is the one gate; CI and
+# pre-commit call the same scripts/audit-core.sh, so `make audit` == green CI.
+# ──────────────────────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-
-# Repo-owned bash scripts: every *.sh outside the vendored core/ subtree, plus
-# sketchybar/sketchybarrc — a bash entry point with NO .sh extension (sketchybar
-# requires that exact filename), so the glob would miss it. Append it explicitly
-# so shellcheck/shfmt/syntax cover it like any other repo-owned script.
-SH_FILES := $(shell find . -name '*.sh' -not -path './core/*' -not -path './.git/*' | sort) sketchybar/sketchybarrc
-SHFMT_FLAGS := -i 2
-
-# Repo-owned zsh modules. These are the real behavioral surface of this repo, yet
-# the .sh-only globs above never reach them (the entry files have NO extension).
-# `zsh -n` parses each so a broken edit can't ship green. core/ zsh is gated in
-# dotfiles-core's own CI.
-ZSH_FILES := zsh/zshenv zsh/zprofile zsh/zshrc os/macos.zsh
-
-.PHONY: help lint fmt fmt-check shellcheck syntax zsh-syntax check core-advisory \
-        tools test test-repo test-all bench bootstrap bootstrap-dry doctor sync-core \
-        core-audit verify-core check-core-freshness core-lock brew-check
+.PHONY: help setup doctor audit audit-changed test bench profile lint sync sync-dry fleet-drift parity-check hooks update-hooks update-plugins update-nvim-plugins update-tool-checksums check-pins release release-notes
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
-	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n",$$1,$$2}'
+	@echo "dotfiles-core — make targets:"
+	@grep -E '^[a-z][a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
+		| sed -E 's/:.*## /\t/' | sort | awk -F'\t' '{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 
-lint: shellcheck fmt-check syntax zsh-syntax ## Run all gating checks (shellcheck + format + bash/zsh syntax)
+setup: ## One-command dev bootstrap (pre-commit hooks + version doctor + audit) — start here
+	@./scripts/setup.sh
 
-shellcheck: ## Static analysis of repo-owned bash
-	@shellcheck $(SH_FILES)
+doctor: ## Read-only triage: are the dev tools present and matching the pins? (no install, no audit)
+	@./scripts/setup.sh --doctor
 
-fmt-check: ## Verify formatting without writing (CI uses this)
-	@shfmt $(SHFMT_FLAGS) -d $(SH_FILES)
+audit: ## Run the full Core audit (manifest, exec-bits, syntax, lint, behavioral) — the one gate
+	@./scripts/audit-core.sh
 
-fmt: ## Auto-format repo-owned bash in place
-	@shfmt $(SHFMT_FLAGS) -w $(SH_FILES)
+audit-changed: ## Audit only what your git diff touches (fast dev loop; same classifier as CI)
+	@./scripts/audit-core.sh --changed
 
-syntax: ## `bash -n` syntax gate on every repo-owned script
-	@for f in $(SH_FILES); do bash -n "$$f" || exit 1; done
-	@echo "syntax ok:"; printf '  %s\n' $(SH_FILES)
+test: ## Run only the behavioral tests (load-order smoke + function units)
+	@./scripts/test-core.sh
 
-zsh-syntax: ## `zsh -n` syntax gate on repo-owned zsh modules (skips if zsh absent)
-	@command -v zsh >/dev/null 2>&1 || { echo "  skip zsh-syntax (zsh not installed)"; exit 0; }
-	@for f in $(ZSH_FILES); do zsh -n "$$f" || exit 1; done
-	@echo "zsh syntax ok:"; printf '  %s\n' $(ZSH_FILES)
+bench: ## Benchmark Core's contribution to zsh startup (needs hyperfine; skips if absent)
+	@./scripts/bench-core.sh
 
-core-advisory: ## Non-blocking shellcheck over vendored core/ (fixes land upstream)
-	@shellcheck $$(find core -name '*.sh') || \
-	  echo "(advisory) core/ findings above are fixed upstream in dotfiles-core"
+profile: ## Per-module zsh startup breakdown (attributes the total cost; slowest first)
+	@./scripts/bench-core.sh --profile
 
-core-audit: ## Gate the vendored Core subtree with its OWN audit (manifest/exec-bits/syntax/config drift a subtree pull can introduce)
-	@cd core && ./scripts/audit-core.sh --quiet
+lint: audit ## Alias for `audit` (the audit IS the lint+test gate)
 
-verify-core: ## Assert vendored core/ is byte-for-byte upstream @ the recorded subtree-split (catches hand-edits + orphans the dir-level manifest misses)
-	@./test/verify-core.sh
+sync: ## Subtree-pull Core into every OS repo (THE maintain button) — writes to sibling repos
+	@./scripts/sync-core.sh
 
-check-core-freshness: ## Is the vendored core/ behind upstream? (the nudge to run sync-core)
-	@./test/check-core-freshness.sh
+sync-dry: ## Show what `sync` would do, touching nothing
+	@./scripts/sync-core.sh --dry-run
 
-core-lock: ## Regenerate core.lock from the vendored subtree-split (after a MANUAL subtree pull; CORE_BRANCH overrides the recorded branch; sync-core writes it automatically)
-	@split="$$(git log --grep='git-subtree-dir: core' -n1 --format='%b' 2>/dev/null \
-	  | sed -n 's/^[[:space:]]*git-subtree-split:[[:space:]]*//p' | head -n1)"; \
-	 [ -n "$$split" ] || { echo "  core-lock: no git-subtree-split marker (not a subtree checkout?)" >&2; exit 1; }; \
-	 ver="$$(tr -d '[:space:]' < core/core.version 2>/dev/null || echo unknown)"; \
-	 branch="$${CORE_BRANCH:-$$(sed -n 's/^core_branch=//p' core.lock 2>/dev/null | head -n1)}"; \
-	 branch="$${branch:-main}"; \
-	 { echo "# GENERATED — vendored Core provenance (B1). Regenerate with: make core-lock"; \
-	   echo "core_version=$$ver"; echo "core_sha=$$split"; echo "core_branch=$$branch"; } > core.lock; \
-	 git add core.lock; \
-	 echo "  wrote core.lock → $$(echo "$$split" | cut -c1-12) (v$$ver, $$branch) — commit it"
+fleet-drift: ## Report which OS repos (+ Windows) lag Core's tip — the vendoring-drift dashboard
+	@./scripts/fleet-drift.sh
 
-test: ## Run the vendored Core regression harness (self-skips without zsh)
-	@cd core && ./scripts/test-core.sh
+parity-check: ## Verify PARITY.md's aligned rows hold across zsh + pwsh (needs sibling dotfiles-Windows)
+	@./scripts/parity-check.sh
 
-test-repo: ## Run THIS repo's behavioral tests (bootstrap.sh, zsh loader, defaults.sh)
-	@./test/test-repo.sh
+hooks: ## Install the pre-commit hooks into this clone
+	@command -v pre-commit >/dev/null 2>&1 || { echo "pre-commit not found: pip install pre-commit"; exit 1; }
+	@pre-commit install
 
-test-all: test-repo test ## Run repo-owned tests + the vendored Core harness
+update-hooks: ## Bump pinned pre-commit hook revisions (dependabot has no pre-commit ecosystem)
+	@command -v pre-commit >/dev/null 2>&1 || { echo "pre-commit not found: pip install pre-commit"; exit 1; }
+	@pre-commit autoupdate
 
-bench: ## Measure Core shell-startup cost (set CORE_BENCH_BUDGET_MS to gate)
-	@cd core && ./scripts/bench-core.sh
+update-plugins: ## Roll the pinned zsh-plugin SHAs in zsh/plugins.zsh to upstream HEAD (deliberate bump)
+	@./scripts/update-plugins.sh
 
-brew-check: ## Verify every Brewfile formula/cask is installed (the reproducibility gate; run on macOS)
-	@command -v brew >/dev/null 2>&1 || { echo "  brew not found — run this on macOS"; exit 1; }
-	@brew bundle check --file=Brewfile --verbose
+update-nvim-plugins: ## Roll the pinned nvim plugin commits in nvim/lazy-lock.json forward (deliberate bump)
+	@./scripts/update-nvim-plugins.sh
 
-bootstrap: ## Install: symlinks + Homebrew + brew bundle (macOS)
-	@./bootstrap.sh
+update-tool-checksums: ## Recompute the pinned CI tool SHA-256s in tool-versions.env after a version bump
+	@./scripts/update-tool-checksums.sh
 
-bootstrap-dry: ## Preview the installer plan (symlinks); change nothing
-	@./bootstrap.sh --links-only --dry-run
+check-pins: ## Report whether the zsh-plugin + nvim pins are behind upstream (the weekly freshness gate)
+	@./scripts/update-plugins.sh --check && ./scripts/update-nvim-plugins.sh --check
 
-doctor: ## Show what bootstrap would change + verify the lint toolchain
-	@./bootstrap.sh --links-only --dry-run || true
-	@$(MAKE) -s tools || true
+release: ## Cut a release: bump core.version + CHANGELOG, run the audit (usage: make release VERSION=X.Y.Z)
+	@./scripts/release.sh $(VERSION)
 
-sync-core: ## Reminder: pull the latest vendored Core subtree, then relink
-	@echo "  git subtree pull --prefix=core <remote>/dotfiles-core main --squash"
-	@echo "  ./bootstrap.sh --links-only   # re-wire any new/changed Core files"
-	@echo "  make test                     # prove the new Core still loads"
-
-check: lint ## Alias for `lint`
-
-tools: ## Verify the lint toolchain is installed
-	@for t in shellcheck shfmt; do \
-	  command -v $$t >/dev/null && echo "  ok  $$t" \
-	    || { echo "  MISSING $$t — run: brew bundle (or see Brewfile 'Dev: lint & format')"; exit 1; }; \
-	done
+release-notes: ## Draft a GitHub Release body from Conventional Commits since the last release (needs git-cliff)
+	@command -v git-cliff >/dev/null 2>&1 || { echo "git-cliff not found: cargo install git-cliff (or scoop/pkg). Config: cliff.toml"; exit 1; }
+	@_from=$$(git log --grep='^release v' --format=%H -1); \
+	  if [ -n "$$_from" ]; then git-cliff "$$_from..HEAD"; else git-cliff; fi

@@ -1,143 +1,195 @@
-# dotfiles-MacBook
+# dotfiles-core
 
-macOS (Apple Silicon / Intel) terminal environment — the **OS-native layer** of a
-nine-repo dotfiles system. The shared **Core** (zsh modules, tmux, Neovim, git,
-mise, starship, clipboard) is vendored under `core/` as a git subtree from
-[`dotfiles-core`](../dotfiles-core); this repo adds only what is specific to macOS.
+**Single source of truth for the Core layer** shared across every machine repo.
+This is the keystone of a nine-repo dotfiles system. It holds the config that is
+identical everywhere — shell modules, tmux base, Neovim, git — and nothing that
+is OS-specific or offensive.
 
-> Identity of the _operator_ lives in Core. Identity of the _machine_ lives here.
-> Offensive/engagement tooling lives in `dotfiles-Kali` — not here.
+> If it changes when the _operating system_ changes, it does **not** belong here.
+> If it changes when _you as an operator_ change, it does **not** belong here.
+> Everything left over is Core, and it lives here.
+
+---
+
+## The three-layer model (unchanged, now centralized)
+
+| Layer                | Lives in                                                               | Examples                                        |
+| -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
+| **Core**             | **this repo**, vendored into each OS repo via `git subtree`            | zsh modules, tmux base, nvim, git/delta         |
+| **OS-native**        | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}`        | package manager, clipboard shim, paths          |
+| **Role / offensive** | `dotfiles-Kali`                                                        | engagement scaffolding, C2, Impacket, wordlists |
+
+Previously each repo carried its **own copy** of Core, and drift was caught
+after the fact with `core-diff.sh`. That works at 4 repos. At 9 it doesn't.
+This repo flips it: Core is authored **once, here**, then pulled into each OS
+repo as a vendored `core/` subtree. No more N-way reconciliation.
+
+---
+
+## How an OS repo consumes Core
+
+Each machine repo (e.g. `dotfiles-Fedora`) vendors this repo under `core/`:
+
+```bash
+# one-time, inside the OS repo:
+git subtree add --prefix=core https://github.com/<you>/dotfiles-core main --squash
+```
+
+That physically copies Core into `core/` and commits it. The repo now clones
+and works with **no submodule flags** — important, since these are public
+showcase repos people will browse.
+
+To update every OS repo after a Core change, run the loop helper from this repo:
+
+```bash
+./scripts/sync-core.sh          # subtree-pulls main into all 9 OS repos
+./scripts/sync-core.sh --dry-run
+```
+
+> Run `make` (no target) for a discoverable list of every entry point —
+> `make setup` / `doctor` / `audit` / `test` / `bench` / `sync` / `hooks` all shell out
+> to the `scripts/*.sh` dev tooling, which stays the single source of truth. (`make doctor`
+> is the read-only triage half of `setup`; `bin/` holds only what ships — `clip`/`clip-paste`;
+> the gate scripts live in `scripts/`.)
+
+The OS repo's `bootstrap.sh` then symlinks `core/zsh/*.zsh`, `core/tmux/`,
+`core/nvim/`, `core/git/`, `core/vim/`, `core/starship/`, `core/mise/`, and `core/bin/` into
+place alongside its own OS-native files. (`core/bin/` is just `clip`/`clip-paste`
+now — the dev scripts in `core/scripts/` are repo tooling and aren't symlinked.)
+
+---
+
+## Why subtree (not submodule, not chezmoi)
+
+- **vs submodule** — submodules store a _pointer_, so a fresh clone is empty
+  until `git submodule update --init`. Subtree vendors the actual files, so
+  every repo is self-contained and clone-and-go. Better for portfolio repos.
+- **vs chezmoi** — chezmoi (one repo + per-OS templates) is the most DRY answer
+  and is the right move if you ever want to collapse nine repos into one. It
+  trades the nine-repo breadth-portfolio for minimalism. This system keeps the
+  portfolio; switching to chezmoi later is a content migration, not a rewrite,
+  because the Core files here are already plain and OS-agnostic.
+
+---
 
 ## Layout
 
-```
-bootstrap.sh        Homebrew + brew bundle + symlink wiring (idempotent)
-Brewfile            macOS packages (CLI + casks + fonts)        ← you provide
-core/               vendored Core subtree (do not edit here; edit dotfiles-core)
-os/
-  macos.zsh         interactive shell extras  → ~/.config/zsh/os.zsh
-  macos.gitconfig   osxkeychain + excludes + gpg → ~/.config/git/os.gitconfig
-  macos.gitignore   global git excludes        → ~/.config/git/ignore
-  macos.conf        tmux en0 + battery bits     → ~/.config/tmux/os.conf
-zsh/
-  zshenv            → ~/.zshenv   (sets ZDOTDIR + XDG + universal env)
-  zprofile          → ~/.config/zsh/.zprofile  (Homebrew, juliaup, 1Password agent)
-  zshrc             → ~/.config/zsh/.zshrc      (history + completion + the loader)
-macos/
-  defaults.sh       `defaults write` system prefs (opt-in)       ← you provide
-ghostty/
-  config            Ghostty terminal config    → ~/.config/ghostty/config
-ssh/
-  config            SSH client config (keys never tracked)       ← you provide
-```
+Core is fully populated — every layer below is authored here and synced out to
+each OS repo's vendored `core/`. The canonical inventory is `core.manifest`;
+this tree is the human-readable version of it.
 
-## Install (fresh Mac)
-
-```bash
-git clone <your-remote>/dotfiles-MacBook ~/dotfiles-MacBook
-cd ~/dotfiles-MacBook
-# core/ is a vendored subtree and is ALREADY present in a clone — no extra step.
-# (You only run `git subtree add --prefix=core …` when building this repo from scratch.)
-./bootstrap.sh --links-only --dry-run   # preview the symlink plan (changes nothing)
-./bootstrap.sh                 # Homebrew + brew bundle + symlinks
-exec zsh
-./bootstrap.sh --macos-defaults   # optional: apply system prefs (may need logout)
-```
-
-Flags: `--dry-run`/`-n` (print every planned action, change nothing),
-`--links-only` (just symlinks), `--no-brew` (skip Homebrew/bundle),
-`--set-shell` (make the Homebrew zsh your login shell), `--macos-defaults`
-(also run `macos/defaults.sh`; that script takes its own `--dry-run` too).
-
-## How the shell loads
-
-`~/.zshenv` sets `ZDOTDIR=~/.config/zsh`, so the rest of zsh lives there.
-`.zprofile` (login) sets Homebrew/PATH; `.zshrc` (interactive) sources the Core
-modules + the macOS layer + your local overrides, in order:
-
-```
-tools → options → history → aliases → git → functions → fzf → bindings
-      → plugins → op → maint → update → os → local
-```
-
-`options.zsh` owns `compinit` + setopts and `history.zsh` owns history config
-(both run before `plugins.zsh`). `tools…update` are Core; `os` is
-`os/macos.zsh`; `local` is your untracked `~/.config/zsh/local.zsh`. The order
-is load-bearing — see the comments in `zshrc`.
-
-## Updating Core
-
-Edit in `dotfiles-core`, then from there run `./bin/sync-core.sh`, or here:
-
-```bash
-git subtree pull --prefix=core <your-remote>/dotfiles-core main --squash
-./bootstrap.sh --links-only
+```text
+bin/                      SHIPPED — vendored into every OS repo (in core.manifest):
+  clip                    cross-OS "copy to clipboard"   (WSL/macOS/Wayland/X11)
+  clip-paste              cross-OS "paste from clipboard"
+lib/                      SHIPPED — vendored bash libraries (sourced, not run):
+  ux.sh                   shared palette/glyphs/spinner — each OS repo's bootstrap.sh
+                          sources this (the pre-shell installer can't load the zsh ui.zsh)
+scripts/                  DEV TOOLING — runs the gate HERE, never vendored out:
+  audit-core.sh           THE gate: manifest/exec-bit/syntax/lint/behavioral (CI + pre-commit run this)
+  test-core.sh            behavioral suite: clip ladder + load-order smoke + functions + nvim load
+  bench-core.sh           hermetic hyperfine benchmark of the canonical zsh load chain
+  sync-core.sh            loop git-subtree pull across all OS repos (the maintain button)
+  update-plugins.sh       roll the pinned zsh-plugin SHAs (zsh/plugins.zsh) to upstream HEAD
+zsh/                      sourced by each OS repo's .zshrc loader, IN THIS ORDER:
+  loader.zsh              canonical byte-compile + source loop (vendored so each OS .zshrc can source THIS instead of duplicating it)
+  tools.zsh               detection + single init point (zoxide/starship/atuin/mise) — load FIRST
+  ui.zsh                  terminal-UX primitives (_core_err/warn/ok/hint/confirm/spin) — gum-aware
+  options.zsh             setopts + completion system (compinit, cached) + zstyles
+  history.zsh             HISTFILE/HISTSIZE/SAVEHIST + history setopts + secret-ignore
+  aliases.zsh             modern-CLI aliases, each guarded by tools.zsh detection
+  git.zsh                 curated OMZ-style git aliases + git_main_branch helper
+  functions.zsh           cross-OS shell functions (mkcd, extract, up, ...)
+  fzf.zsh                 fzf env + zle widgets (Ctrl-T/R, Alt-Z, Ctrl-G) + fif/fbr
+  bindings.zsh            vi-mode keybindings (zvm_after_init hook)
+  plugins.zsh             lightweight plugin loader + plugin list
+  op.zsh                  1Password CLI helpers
+  maint.zsh               daily-maintenance control surface (maint-install/run/log)
+  update.zsh              `up` updater + once/day "updates available" nudge
+  completions/            autoloaded completions for Core's verbs (up/extract/mkcd/…) — fpath-added by options.zsh
+starship/
+  starship.toml           prompt theme -> symlinked to ~/.config/starship.toml
+mise/
+  config.toml             global runtime versions (node/python/ruby/go/rust/java/lua)
+sesh/
+  sesh.toml.example       portable session-manager config (seeded, not symlinked)
+tmux/
+  tmux.conf               portable base config (OS bits -> os/<os>.conf)
+  tmux.reset.conf         the keybinding layer (prefix C-a lives here)
+  scripts/                popup scripts: tmux-battery / tmux-cheat / tmux-menu / tmux-netinfo / tmux-scratch / tmux-sesh
+maint/
+  dotfiles-maint.sh       the daily "update everything (that's safe)" runner
+git/
+  gitconfig               portable git config (OS + identity layered via [include])
+  local.gitconfig.example identity template — seeded by bootstrap, never tracked
+lazygit/
+  config.yml              tokyonight theme -> symlinked to ~/.config/lazygit/config.yml
+vim/
+  vimrc                   plugin-free fallback for boxes with only stock vim -> symlinked to ~/.vimrc
+nvim/                     entire lazy.nvim tree: lua/gerrrt/{config,plugins,servers,utils}
+core.manifest             the canonical list of Core files (drives sync + audits)
+core.version              human-readable Core version stamp (read by `core-version`)
 ```
 
-## macOS specifics worth knowing
+> Load order is load-bearing: `tools` inits atuin (registers its widget), `options`
+> runs `compinit` (fzf-tab + carapace need it), and `fzf` defines its zle widgets
+> BEFORE `plugins` loads zsh-vi-mode, whose init fires the keybinding hook in
+> `bindings`. `ui` loads right after `tools` (it only defines the `_core_*` UX
+> helpers every later module may call). Each OS repo's `.zshrc` sources them as
+> `tools → ui → options → history → aliases → git → functions → fzf → bindings →
+plugins → op → maint → update → os → local` (the canonical order in
+> `core.manifest`).
 
-- **Homebrew** lives at `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel);
-  `.zprofile` handles both.
-- **Clipboard** is native — Core's `clip`/`clip-paste` shell out to `pbcopy`/`pbpaste`.
-- **1Password SSH agent** — `.zprofile` points `SSH_AUTH_SOCK` at the 1Password
-  socket; comment it out if you don't use it.
-- **Credentials** — git uses the macOS keychain via `osxkeychain`.
+---
 
-## Development
+## Adding a new file to Core
 
-Static analysis is the test suite here — dotfiles can't really be unit-tested, so
-shellcheck + shfmt + `bash -n` are what guard every change. The same commands run
-locally and in CI:
+Core is already complete (zsh, tmux, nvim, git, starship, mise, and the clip
+scripts are all here). The promotion from the old per-repo copies is done — so
+this is now just the procedure for the occasional **new** Core file:
 
-```bash
-brew bundle            # installs the lint toolchain (see Brewfile "Dev: lint & format")
-make lint              # shellcheck + shfmt -d + bash -n + zsh -n   (what CI gates)
-make test-repo         # behavioral tests for THIS repo (bootstrap, zsh loader, defaults)
-make test              # vendored Core load-order + function tests (needs zsh)
-make test-all          # both of the above
-make fmt               # auto-format repo-owned bash in place
-make help              # list all targets (bootstrap, doctor, sync-core, …)
-pre-commit install     # optional: run the same gate at commit time
-```
+1. Confirm it's actually Core: identical on every machine, **not** OS-specific,
+   **not** offensive. (OS-specific → the OS repo; offensive → `dotfiles-Kali`.)
+2. Drop it into the matching path here.
+3. Strip anything OS-specific out into the OS repo (clipboard, paths, pkg mgr).
+4. Add the path to `core.manifest` — that's the contract the audits read.
+5. Wire the symlink into each OS repo's `bootstrap.sh` if the file needs one.
+6. `./scripts/sync-core.sh` to push it into every OS repo's vendored `core/`.
 
-`make test-repo` (in `test/test-repo.sh`) is hermetic and runs anywhere: it exercises
-`bootstrap.sh` (arg-parse, did-you-mean, dry-run no-op, output hygiene), the
-`zsh/zshrc` loader (sources in canonical order — not just `zsh -n`), the macOS
-completion wiring, and `macos/defaults.sh`. Every mutation is sandboxed; no real
-provision ever runs.
+## Maintaining Core (the automated workflow)
 
-The repo-owned **zsh** modules (`zsh/zshenv`, `zsh/zprofile`, `zsh/zshrc`,
-`os/macos.zsh`) have no `.sh` extension, so they're gated separately by
-`make zsh-syntax` (`zsh -n`), folded into `make lint`.
+Day-to-day this is the whole loop — author, gate, fan out:
 
-- **CI** — `.github/workflows/ci.yml` runs the `shell lint` job
-  (`make {shellcheck,fmt-check,syntax,zsh-syntax,test-repo}`), a `core regression` job
-  (`make test`), a `macos smoke` job (clipboard round-trip, Brewfile parse, real-Darwin
-  bootstrap/defaults dry-run, `make test-repo`), and `actionlint`. Triggers are
-  de-duplicated (`push` on `main`/tags, `pull_request` elsewhere; docs-only changes skip
-  the shell suite) and superseded runs cancel (`concurrency`). **All** linters —
-  shellcheck, shfmt, actionlint — are version-pinned and cached. `pre-commit` mirrors
-  every gate locally.
-- **Reproducible installs** — the committed `Brewfile` is the source of truth (Homebrew
-  6.x removed `Brewfile.lock.json`, so there's no lockfile to pin hashes). `make
-  brew-check` verifies every entry is installed on a provisioned machine; the `macos
-  smoke` job validates the `Brewfile` parses (`brew bundle list --all`).
-- **Style** — repo-owned bash is 2-space (`shfmt -i 2`); `.editorconfig` is the
-  source of truth and `shfmt`/editors both read it.
-- **Scope** — `core/` is a vendored git-subtree from
-  [`dotfiles-core`](../dotfiles-core); the lint targets and pre-commit hooks
-  **exclude** it on purpose. Editing it here would diverge the subtree, so its
-  Lua/shell is linted in _that_ repo's CI. `make core-advisory` surfaces any
-  `core/` findings locally without gating.
+1. **Pick the layer.** Core only if identical everywhere **and** not OS-specific
+   **and** not offensive. Otherwise it belongs in the OS repo (or `dotfiles-Kali`).
+2. **Edit here**, add a `[Unreleased]` `CHANGELOG.md` bullet in the _same_ commit
+   (Conventional Commits message).
+3. **`make audit-changed`** (fast loop) → **`make audit`** (the full gate).
+4. **`make sync`** — fan Core out to every OS repo (only after a green audit).
 
-### Upstream (`core/`) follow-ups
+Scheduled bots now cover the chores you used to have to _remember to check_. They
+**report first** (PR or deduped issue) and never vendor anything out on their own —
+your job is to glance at what they open and merge or act:
 
-These were found during audit but belong to `dotfiles-core` (fix there, then
-`git subtree pull` / `sync-core.sh` brings them down — don't hand-edit `core/`):
+| Bot (workflow) | Repo | Cadence | Opens |
+| --- | --- | --- | --- |
+| `/doc-audit` + `/tool-scout` (`claude-routines.yml`) | core | weekly + on demand | findings **issue** |
+| pin freshness (`freshness.yml`) | core | weekly | **PR** (rolls zsh-plugin + nvim pins forward) |
+| `fleet-sync.yml` | web | weekly | **PR** (regenerated site data) |
+| `nvim-sync.yml` | Windows | weekly | **PR** when `nvim/` drifts |
+| `package-freshness.yml` | Windows | weekly | scoop/winget **issue** |
 
-- `core/tmux/scripts/tmux-scratch.sh` — shebang is `#!/bin/bash`; every other
-  script uses `#!/usr/bin/env bash`.
-- `core/tmux/scripts/tmux-sessionizer.sh` — superseded by `tmux-sesh.sh` (per
-  `core.manifest`); it's dead and should be removed upstream.
-- `core/maint/dotfiles-maint.sh` — ShellCheck SC2015 (`A && B || C`) and SC2016.
-- `core/tmux/scripts/tmux-menu.sh` — ShellCheck SC2016.
+A quiet week (no bot PR/issue) means nothing needs doing. Every bot is
+`workflow_dispatch`-able to run on demand.
+
+> **One wiring step:** `claude-routines.yml` is inert until the
+> `CLAUDE_CODE_OAUTH_TOKEN` secret is set on this repo (`claude setup-token`) — until
+> then the doc-audit / tool-scout issues won't appear.
+
+### Cutting a release
+
+1. `make release VERSION=X.Y.Z` — promotes `CHANGELOG.md`'s hand-written
+   `[Unreleased]` to a dated `## [vX.Y.Z]` heading, bumps `core.version`, runs the
+   audit.
+2. Commit it, then — if you publish a GitHub Release — `make release-notes` drafts
+   the release body from Conventional Commits (it does **not** touch `CHANGELOG.md`).
