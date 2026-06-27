@@ -459,15 +459,14 @@ wire_links() {
   # shellcheck disable=SC2034  # read by the sourced bootstrap-lib.sh (blib_* honor BLIB_DRY)
   BLIB_DRY="$DRY"
   BLIB_LINKED=0 BLIB_SEEDED=0 BLIB_BACKED=0 BLIB_SKIPPED=0
-  # blib_* are not --quiet-aware, so silence the scaffold's section headers under --quiet;
-  # the bridged counters below still report whatever it changed.
-  if ((QUIET)); then
-    blib_link_core "$REPO" "$CFG" >/dev/null
-    blib_link_os_layer "$REPO" "$CFG" macos >/dev/null
-  else
-    blib_link_core "$REPO" "$CFG"
-    blib_link_os_layer "$REPO" "$CFG" macos
-  fi
+  # blib_* are not --quiet-aware and conflate section headers with actionable messages
+  # (tpm clone failure, seeded-file notes, ssh wiring) on the same stream — so we do NOT
+  # redirect them away under --quiet: a /dev/null there would hide failures/changes too,
+  # not just headers. We accept the scaffold's couple of header lines leaking into a quiet
+  # run as the lesser evil. (In --json mode fd1 already points at stderr, so this output
+  # never reaches the JSON object on fd3 regardless.)
+  blib_link_core "$REPO" "$CFG"
+  blib_link_os_layer "$REPO" "$CFG" macos
   # fold the scaffold's tallies into this run's summary so --json / print_summary stay accurate
   n_linked=$((n_linked + BLIB_LINKED))
   n_backed=$((n_backed + BLIB_BACKED))
