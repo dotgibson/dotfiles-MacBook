@@ -124,7 +124,10 @@ G_OK=$UX_OK G_INFO=$UX_INFO G_ERR=$UX_ERR SPIN_FRAMES=$UX_SPIN_FRAMES
 # core/lazygit/config.yml + core/vim/vimrc unlinked here). Sourced after ux.sh so the
 # blib_* messages share the palette; REQUIRED like ux.sh (a clone always has core/).
 if [[ -r "$REPO/core/lib/bootstrap-lib.sh" ]]; then
-  # shellcheck source=core/lib/bootstrap-lib.sh
+  # source=/dev/null (not the real path): `make shellcheck` here runs without -x, so a
+  # real-path directive would only yield SC1091 "not following"; /dev/null silences it,
+  # matching how ux.sh is sourced above.
+  # shellcheck source=/dev/null
   source "$REPO/core/lib/bootstrap-lib.sh"
 else
   printf 'bootstrap: core/lib/bootstrap-lib.sh is missing — the core/ subtree is incomplete.\n' >&2
@@ -453,6 +456,7 @@ wire_links() {
   # instead of being re-listed by hand (the exact drift that left lazygit + vimrc unlinked
   # in this repo). Map --dry-run onto BLIB_DRY so the scaffold previews and mutates nothing.
   step "Core + macOS overlay (shared scaffold)"
+  # shellcheck disable=SC2034  # read by the sourced bootstrap-lib.sh (blib_* honor BLIB_DRY)
   BLIB_DRY="$DRY"
   BLIB_LINKED=0 BLIB_SEEDED=0 BLIB_BACKED=0 BLIB_SKIPPED=0
   # blib_* are not --quiet-aware, so silence the scaffold's section headers under --quiet;
