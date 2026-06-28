@@ -1,7 +1,7 @@
 # dotfiles-MacBook
 
 macOS (Apple Silicon / Intel) terminal environment — the **OS-native layer** of a
-nine-repo dotfiles system. The shared **Core** (zsh modules, tmux, Neovim, git,
+ten-repo dotfiles system. The shared **Core** (zsh modules, tmux, Neovim, git,
 mise, starship, clipboard) is vendored under `core/` as a git subtree from
 [`dotfiles-core`](../dotfiles-core); this repo adds only what is specific to macOS.
 
