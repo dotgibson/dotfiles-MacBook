@@ -1,8 +1,8 @@
 # Migrating the Mac from `~/.config`-as-repo → `~/dotfiles-MacBook`
 
 Right now your Mac is the odd one out: the repo **is** `~/.config` (you cloned it
-straight there, and `$ZDOTDIR` + `dotsync` point inside it). The other eight repos
-live at `~/dotfiles-<OS>` and _symlink_ into `~/.config`. This runbook moves the
+straight there, and `$ZDOTDIR` + `dotsync` point inside it). The other nine repos
+live at `~/dotfiles-*` and _symlink_ into `~/.config`. This runbook moves the
 Mac onto that same model so `sync-core.sh` and every assumption works uniformly.
 
 It is written to be **safe on your daily driver**: you take a full backup first,
