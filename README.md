@@ -1,4 +1,13 @@
-# dotfiles-MacBook
+# 🍎 dotfiles-MacBook
+
+**macOS, tiled and keyboard-driven.** The macOS layer — Homebrew, AeroSpace
+tiling, and desktop tooling over the shared core.
+
+`brew` · `aerospace` · `zsh` · `nvim`
+
+[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://gerrrt.github.io/dotfiles-web/) ![macOS](https://img.shields.io/badge/macOS-ready-7aa2f7?style=flat-square)
+
+---
 
 macOS (Apple Silicon / Intel) terminal environment — the **OS-native layer** of a
 ten-repo dotfiles system. The shared **Core** (zsh modules, tmux, Neovim, git,
