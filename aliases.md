@@ -13,20 +13,20 @@ See `core/` for the full Core alias reference (modern CLI, git, safety nets).
 |-------|------------|
 | `localip` | `ipconfig getifaddr en0` (LAN IP on primary interface) |
 | `flushdns` | `sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder` |
-| `showfiles` | Enable hidden files in Finder and relaunch |
-| `hidefiles` | Disable hidden files in Finder and relaunch |
+| `showfiles` | `defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder` |
+| `hidefiles` | `defaults write com.apple.finder AppleShowAllFiles -bool false && killall Finder` |
 | `o` | `open` — `o .` opens the current directory in Finder |
-| `dotsync` | `cd ~/dotfiles-MacBook` |
+| `dotsync` | `cd "$HOME/dotfiles-MacBook"` |
 
 ## Conditional (activated only when the tool is installed)
 
 | Alias | Expands To | Requires |
 |-------|-----------|----------|
-| `rm` | `trash` (moves to macOS Trash) | `trash` CLI |
-| `cheats` | `navi` (interactive cheat sheet) | navi |
-| `masup` | `mas upgrade` (upgrade all App Store apps) | mas |
-| `masls` | `mas list` (list installed App Store apps) | mas |
-| `opsignin` | `eval "$(op signin)"` | 1Password CLI |
+| `rm` | `trash` (moves to macOS Trash) | `trash` |
+| `cheats` | `navi` (interactive cheat sheet) | `navi` |
+| `masup` | `mas upgrade` (upgrade all App Store apps) | `mas` |
+| `masls` | `mas list` (list installed App Store apps) | `mas` |
+| `opsignin` | `eval "$(op signin)"` | `op` |
 
 ## Desktop Tooling
 
