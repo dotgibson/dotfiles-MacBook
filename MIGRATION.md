@@ -9,7 +9,7 @@ It is written to be **safe on your daily driver**: you take a full backup first,
 nothing is deleted until the new setup is verified, and there's a rollback at the
 bottom. Do this when you have 20 quiet minutes — not five minutes before a meeting.
 
-> Throughout, `<REMOTE>` = your GitHub base, e.g. `git@github.com:Gerrrt`.
+> Throughout, `<REMOTE>` = your GitHub base, e.g. `git@github.com:dotgibson`.
 
 ---
 

@@ -52,7 +52,7 @@ fi
   sed -n 's/^[[:space:]]*git-subtree-split:[[:space:]]*//p' | head -n1)"
 [[ -n "$SPLIT" ]] || skip "check-core-freshness: no core.lock or git-subtree-split marker (not a subtree checkout?)"
 
-UPSTREAM="${CORE_UPSTREAM:-https://github.com/Gerrrt/dotfiles-core}"
+UPSTREAM="${CORE_UPSTREAM:-https://github.com/dotgibson/dotfiles-core}"
 BRANCH="${CORE_BRANCH:-main}"
 
 # The upstream tip we'd be pulling. ls-remote needs no clone and is the source of truth.

@@ -72,7 +72,7 @@ fi
 [[ -n "$SPLIT" ]] || SPLIT="$LOCK_SHA"
 [[ -n "$SPLIT" ]] || skip "verify-core: no git-subtree-split marker or core.lock (not a subtree checkout?)"
 
-UPSTREAM="${CORE_UPSTREAM:-https://github.com/Gerrrt/dotfiles-core}"
+UPSTREAM="${CORE_UPSTREAM:-https://github.com/dotgibson/dotfiles-core}"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/verify-core.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
