@@ -21,7 +21,10 @@ What belongs **here** is only the OS-native layer: the `Brewfile`, OS overlays, 
 ## Where things are
 
 - `Brewfile` — Homebrew package list
+- `zsh/zshenv`, `zsh/zprofile`, `zsh/zshrc` — the loader entry points (symlinked to `~/.zshenv`/`~/.config/zsh/`)
 - `os/macos.zsh`, `os/macos.conf`, `os/macos.gitconfig` — OS overlays
+- `macos/defaults.sh` — `defaults write` system-preferences script (`bootstrap.sh --macos-defaults`)
 - `aerospace/`, `sketchybar/`, `karabiner/`, `ghostty/` — macOS desktop tooling
+- `completions/` — shell completion files
 - `bootstrap.sh`, `Makefile` — install + dev entry points
 - `core/` — vendored Core (read-only here; edit upstream in dotfiles-core)
