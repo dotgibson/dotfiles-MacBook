@@ -21,7 +21,7 @@ Set TypingSpeed 55ms
 # --- silent setup: land on a clean prompt ---
 Hide
 Type "source ~/.config/zsh/.zshrc" Enter
-Type "cd $(pwd)" Enter
+Type "cd ~/code/dotfiles/dotfiles-MacBook" Enter
 Type "clear" Enter
 Show
 Sleep 3s

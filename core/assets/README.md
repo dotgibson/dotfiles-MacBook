@@ -8,9 +8,10 @@ Rendered from [`demo.tape`](demo.tape) with [VHS](https://github.com/charmbracel
 so it's reproducible: re-run the command after any prompt or tooling change and the
 hero updates — no manual re-recording.
 
-    # Run from the dotfiles-core repo root (or from an OS repo: `cd core` first)
-    brew install vhs        # one-time (pulls ttyd + ffmpeg)
-    vhs assets/demo.tape    # writes assets/demo.gif
+```sh
+brew install vhs        # one-time (pulls ttyd + ffmpeg)
+vhs assets/demo.tape    # writes assets/demo.gif
+```
 
 Requires a Nerd Font installed locally — the icons in `eza` and `starship` render as
 boxes without one. Keep the clip short (~15s). If the GIF is heavy, optimize it:
