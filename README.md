@@ -136,8 +136,9 @@ This is an **OS-native layer**, so the contribution rule is a boundary rule:
    `dotfiles-core`, run `make audit` there, then `make sync` fans it out here.
 2. **Keep changes genuinely macOS.** If it would be identical on every machine,
    it belongs in Core; if it changes with the operator, it belongs in a role repo.
-3. **Green the gate.** `make lint` (shellcheck + shfmt + `bash -n` / `zsh -n`) and
-   `make test-repo` are what CI runs; `pre-commit install` mirrors it locally.
+3. **Green the gate.** CI runs shellcheck + shfmt + `bash -n` / `zsh -n` +
+   `make test-repo` (as individual targets); `make lint` bundles the same checks
+   locally, and `pre-commit install` mirrors them at commit time.
 
 Bugs and ideas: open an
 [issue](https://github.com/dotgibson/dotfiles-MacBook/issues).
