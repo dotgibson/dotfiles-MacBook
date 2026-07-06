@@ -198,13 +198,13 @@ Project Link: [dotgibson](https://github.com/dotgibson/)
 [license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-MacBook.svg?style=flat-square
 [license-url]: https://github.com/dotgibson/dotfiles-MacBook/blob/main/LICENSE
 [docs]: https://dotgibson.github.io/dotfiles-web/docs
-[ruby-shield]: https://img.shields.io/github/v/tag/ruby/ruby?sort=semver&style=flat-square&logo=ruby&logoColor=white&label=Ruby&labelColor=CC342D&color=3D59A1
+[ruby-shield]: https://img.shields.io/github/v/release/ruby/ruby?style=flat-square&logo=ruby&logoColor=white&label=Ruby&labelColor=CC342D&color=3D59A1
 [ruby-url]: https://github.com/ruby/ruby
 [homebrew-shield]: https://img.shields.io/github/v/release/Homebrew/brew?style=flat-square&logo=homebrew&logoColor=white&label=Homebrew&labelColor=FBB040&color=3D59A1
 [homebrew-url]: https://github.com/Homebrew/brew
-[ghostty-shield]: https://img.shields.io/github/v/release/ghostty-org/ghostty?style=flat-square&logo=gnometerminal&logoColor=24283B&label=Ghostty&labelColor=BB9AF7&color=3D59A1
+[ghostty-shield]: https://img.shields.io/github/v/tag/ghostty-org/ghostty?sort=semver&style=flat-square&logo=gnometerminal&logoColor=24283B&label=Ghostty&labelColor=BB9AF7&color=3D59A1
 [ghostty-url]: https://github.com/ghostty-org/ghostty
-[aerospace-shield]: https://img.shields.io/github/v/release/nikitabobko/AeroSpace?style=flat-square&logo=gnometerminal&logoColor=24283B&label=AeroSpace&labelColor=BB9AF7&color=3D59A1
+[aerospace-shield]: https://img.shields.io/github/v/tag/nikitabobko/AeroSpace?sort=semver&style=flat-square&logo=gnometerminal&logoColor=24283B&label=AeroSpace&labelColor=BB9AF7&color=3D59A1
 [aerospace-url]: https://github.com/nikitabobko/AeroSpace
 [sketchybar-shield]: https://img.shields.io/github/v/release/FelixKratz/SketchyBar?style=flat-square&logo=gnometerminal&logoColor=24283B&label=SketchyBar&labelColor=BB9AF7&color=3D59A1
 [sketchybar-url]: https://github.com/FelixKratz/SketchyBar
