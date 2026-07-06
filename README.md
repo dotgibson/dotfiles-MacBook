@@ -1,152 +1,185 @@
-# 🍎 dotfiles-MacBook
+<!-- Back to top link -->
+<a id="readme-top"></a>
 
-**macOS, tiled and keyboard-driven.** The macOS layer — Homebrew, AeroSpace
-tiling, and desktop tooling over the shared core.
+<!-- Project Shields -->
+<div align="center"><nobr>
 
-`brew` · `aerospace` · `zsh` · `nvim`
+[![dotgibson][dotgibson-shield]][dotgibson-url]<!--
+-->[![CI][ci-shield]][ci-url]<!--
+-->![Last Commit][lastcommit-shield]<!--
+-->[![Contributors][contributors-shield]][contributors-url]<!--
+-->[![Forks][forks-shield]][forks-url]<!--
+-->[![Stargazers][stars-shield]][stars-url]<!--
+-->[![Issues][issues-shield]][issues-url]<!--
+-->[![Showcase][showcase-shield]][showcase-url]<!--
+-->[![MIT License][license-shield]][license-url]<!--
+-->[![LinkedIn][linkedin-shield]][linkedin-url]
 
-[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://dotgibson.github.io/dotfiles-web/) ![macOS](https://img.shields.io/badge/macOS-ready-7aa2f7?style=flat-square)
+</nobr></div>
 
----
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/dotgibson/">
+    <img src="https://raw.githubusercontent.com/dotgibson/.github/main/profile/logo.png" alt="Logo" width="80" height="80">
+  </a>
 
-macOS (Apple Silicon / Intel) terminal environment — the **OS-native layer** of a
-ten-repo dotfiles system. The shared **Core** (zsh modules, tmux, Neovim, git,
-mise, starship, clipboard) is vendored under `core/` as a git subtree from
-[`dotfiles-core`](../dotfiles-core); this repo adds only what is specific to macOS.
+  <h3 align="center">🍎 dotfiles-MacBook</h3>
 
-> Identity of the _operator_ lives in Core. Identity of the _machine_ lives here.
-> Offensive/engagement tooling lives in `dotfiles-Kali` — not here.
+  <p align="center">
+    The macOS OS-native layer — Homebrew, AeroSpace tiling, and desktop tooling over the shared Core.
+    <br />
+    <a href="https://dotgibson.github.io/dotfiles-web/docs/repos/dotfiles-MacBook"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://dotgibson.github.io/dotfiles-web/playground/">View Demo</a>
+    &middot;
+    <a href="https://github.com/dotgibson/dotfiles-MacBook/issues/new?labels=bug">Report Bug</a>
+    &middot;
+    <a href="https://github.com/dotgibson/dotfiles-MacBook/issues/new?labels=enhancement">Request Feature</a>
+  </p>
+</div>
 
-## Layout
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About The Project</a></li>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#whats-in-this-layer">What's In This Layer</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ol>
+</details>
 
-```
-bootstrap.sh        Homebrew + brew bundle + symlink wiring (idempotent)
-Brewfile            macOS packages (CLI + casks + fonts)        ← you provide
-core/               vendored Core subtree (do not edit here; edit dotfiles-core)
-os/
-  macos.zsh         interactive shell extras  → ~/.config/zsh/os.zsh
-  macos.gitconfig   osxkeychain + excludes + gpg → ~/.config/git/os.gitconfig
-  macos.gitignore   global git excludes        → ~/.config/git/ignore
-  macos.conf        tmux en0 + battery bits     → ~/.config/tmux/os.conf
-zsh/
-  zshenv            → ~/.zshenv   (sets ZDOTDIR + XDG + universal env)
-  zprofile          → ~/.config/zsh/.zprofile  (Homebrew, juliaup, 1Password agent)
-  zshrc             → ~/.config/zsh/.zshrc      (history + completion + the loader)
-macos/
-  defaults.sh       `defaults write` system prefs (opt-in)       ← you provide
-ghostty/
-  config            Ghostty terminal config    → ~/.config/ghostty/config
-ssh/
-  config            SSH client config (keys never tracked)       ← you provide
-```
+<!-- ABOUT THE PROJECT -->
+## About The Project
 
-## Install (fresh Mac)
+**`dotfiles-MacBook` is the OS-native layer for macOS** (Apple Silicon / Intel) —
+one node in a cross-platform dotfiles system. The shared **Core** (zsh, tmux,
+Neovim, git, starship, mise) is authored once in
+[`dotfiles-core`](https://github.com/dotgibson/dotfiles-core) and vendored under
+`core/` via `git subtree`, so a clone is self-contained. This repo adds only what
+is specific to macOS: the `Brewfile` (`brew bundle`), Ghostty, the 1Password SSH
+agent, the native `pbcopy` clipboard — **plus** a committed tiling-desktop layer:
+AeroSpace, SketchyBar, and Karabiner, themed to match Core.
+
+macOS is its own lineage — built directly on Homebrew, **not** stamped from the
+Fedora template. The full docs live on the [documentation site][docs].
+
+The system is three layers, each building on the one below:
+
+| Layer | Lives in | Owns |
+| --- | --- | --- |
+| **Core** | [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core) → vendored into every OS repo's `core/` | zsh, tmux, nvim, git, starship — identical everywhere |
+| **OS-native** | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}` (this repo among them) | package manager, clipboard, paths |
+| **Role** | `dotfiles-Kali`, `dotfiles-Defense` | offensive / defensive tooling |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- GETTING STARTED -->
+## Getting Started
+
+### Prerequisites
+
+A Mac and the Xcode [Command Line Tools](https://developer.apple.com/documentation/xcode/command-line-tools)
+(`xcode-select --install`) — that brings Git. `bootstrap.sh` provisions the rest
+via Homebrew. Already have a Mac configured a different way? See the
+[migration guide][migration] to move onto this layout safely.
+
+### Installation
 
 ```bash
-git clone <your-remote>/dotfiles-MacBook ~/dotfiles-MacBook
+git clone https://github.com/dotgibson/dotfiles-MacBook ~/dotfiles-MacBook
 cd ~/dotfiles-MacBook
-# core/ is a vendored subtree and is ALREADY present in a clone — no extra step.
-# (You only run `git subtree add --prefix=core …` when building this repo from scratch.)
 ./bootstrap.sh --links-only --dry-run   # preview the symlink plan (changes nothing)
-./bootstrap.sh                 # Homebrew + brew bundle + symlinks
+./bootstrap.sh                          # Homebrew + brew bundle + symlinks
 exec zsh
-./bootstrap.sh --macos-defaults   # optional: apply system prefs (may need logout)
+./bootstrap.sh --macos-defaults         # optional: apply system prefs
 ```
 
-Flags: `--dry-run`/`-n` (print every planned action, change nothing),
-`--links-only` (just symlinks), `--no-brew` (skip Homebrew/bundle),
-`--set-shell` (make the Homebrew zsh your login shell), `--macos-defaults`
-(also run `macos/defaults.sh`; that script takes its own `--dry-run` too).
+`core/` is a vendored subtree and is **already present** in a clone — there is no
+submodule step. Flags: `--dry-run`/`-n`, `--links-only`, `--no-brew`,
+`--set-shell` (make the Homebrew zsh your login shell), `--macos-defaults`.
 
-## How the shell loads
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-`~/.zshenv` sets `ZDOTDIR=~/.config/zsh`, so the rest of zsh lives there.
-`.zprofile` (login) sets Homebrew/PATH; `.zshrc` (interactive) sources the Core
-modules + the macOS layer + your local overrides, in order:
+<!-- WHAT'S IN THIS LAYER -->
+## What's In This Layer
 
-```
-tools → options → history → aliases → git → functions → fzf → bindings
-      → plugins → op → maint → update → os → local
-```
+Only what changes with the OS. The heavy lifting — the shell modules, editor, and
+prompt — comes from vendored Core; this repo owns the macOS specifics:
 
-`options.zsh` owns `compinit` + setopts and `history.zsh` owns history config
-(both run before `plugins.zsh`). `tools…update` are Core; `os` is
-`os/macos.zsh`; `local` is your untracked `~/.config/zsh/local.zsh`. The order
-is load-bearing — see the comments in `zshrc`.
+- `Brewfile` — Homebrew packages (CLI + casks + fonts), the source of truth
+- `os/macos.zsh`, `os/macos.gitconfig`, `os/macos.conf` — the macOS overlays
+- `macos/defaults.sh` — the `defaults write` system-preferences script (opt-in)
+- `aerospace/`, `sketchybar/`, `karabiner/`, `ghostty/` — the desktop tooling
+- `core/` — vendored from `dotfiles-core` (read-only here; edit upstream)
 
-## Updating Core
+The things worth knowing — Homebrew on `/opt/homebrew` vs `/usr/local`, the native
+`pbcopy`/`pbpaste` clipboard, the 1Password SSH agent, and the macOS keychain —
+are written up on the hub, alongside the **[migration guide][migration]** for
+moving an existing Mac onto this layout:
 
-Edit in `dotfiles-core`, then from there run `./bin/sync-core.sh`, or here:
+> **[→ dotfiles-MacBook on the documentation hub][repo-docs]**
 
-```bash
-git subtree pull --prefix=core <your-remote>/dotfiles-core main --squash
-./bootstrap.sh --links-only
-```
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## macOS specifics worth knowing
+<!-- CONTRIBUTING -->
+## Contributing
 
-- **Homebrew** lives at `/opt/homebrew` (Apple Silicon) or `/usr/local` (Intel);
-  `.zprofile` handles both.
-- **Clipboard** is native — Core's `clip`/`clip-paste` shell out to `pbcopy`/`pbpaste`.
-- **1Password SSH agent** — `.zprofile` points `SSH_AUTH_SOCK` at the 1Password
-  socket; comment it out if you don't use it.
-- **Credentials** — git uses the macOS keychain via `osxkeychain`.
+This is an **OS-native layer**, so the contribution rule is a boundary rule:
 
-## Development
+1. **Never hand-edit `core/`.** It is a vendored copy of `dotfiles-core` and is
+   overwritten on the next sync. Fix shared config **upstream** in
+   `dotfiles-core`, run `make audit` there, then `make sync` fans it out here.
+2. **Keep changes genuinely macOS.** If it would be identical on every machine,
+   it belongs in Core; if it changes with the operator, it belongs in a role repo.
+3. **Green the gate.** `make lint` (shellcheck + shfmt + `bash -n` / `zsh -n`) and
+   `make test-repo` are what CI runs; `pre-commit install` mirrors it locally.
 
-Static analysis is the test suite here — dotfiles can't really be unit-tested, so
-shellcheck + shfmt + `bash -n` are what guard every change. The same commands run
-locally and in CI:
+Bugs and ideas: open an
+[issue](https://github.com/dotgibson/dotfiles-MacBook/issues).
 
-```bash
-brew bundle            # installs the lint toolchain (see Brewfile "Dev: lint & format")
-make lint              # shellcheck + shfmt -d + bash -n + zsh -n   (what CI gates)
-make test-repo         # behavioral tests for THIS repo (bootstrap, zsh loader, defaults)
-make test              # vendored Core load-order + function tests (needs zsh)
-make test-all          # both of the above
-make fmt               # auto-format repo-owned bash in place
-make help              # list all targets (bootstrap, doctor, sync-core, …)
-pre-commit install     # optional: run the same gate at commit time
-```
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-`make test-repo` (in `test/test-repo.sh`) is hermetic and runs anywhere: it exercises
-`bootstrap.sh` (arg-parse, did-you-mean, dry-run no-op, output hygiene), the
-`zsh/zshrc` loader (sources in canonical order — not just `zsh -n`), the macOS
-completion wiring, and `macos/defaults.sh`. Every mutation is sandboxed; no real
-provision ever runs.
+<!-- LICENSE -->
+## License
 
-The repo-owned **zsh** modules (`zsh/zshenv`, `zsh/zprofile`, `zsh/zshrc`,
-`os/macos.zsh`) have no `.sh` extension, so they're gated separately by
-`make zsh-syntax` (`zsh -n`), folded into `make lint`.
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
 
-- **CI** — `.github/workflows/ci.yml` runs the `shell lint` job
-  (`make {shellcheck,fmt-check,syntax,zsh-syntax,test-repo}`), a `core regression` job
-  (`make test`), a `macos smoke` job (clipboard round-trip, Brewfile parse, real-Darwin
-  bootstrap/defaults dry-run, `make test-repo`), and `actionlint`. Triggers are
-  de-duplicated (`push` on `main`/tags, `pull_request` elsewhere; docs-only changes skip
-  the shell suite) and superseded runs cancel (`concurrency`). **All** linters —
-  shellcheck, shfmt, actionlint — are version-pinned and cached. `pre-commit` mirrors
-  every gate locally.
-- **Reproducible installs** — the committed `Brewfile` is the source of truth (Homebrew
-  6.x removed `Brewfile.lock.json`, so there's no lockfile to pin hashes). `make
-  brew-check` verifies every entry is installed on a provisioned machine; the `macos
-  smoke` job validates the `Brewfile` parses (`brew bundle list --all`).
-- **Style** — repo-owned bash is 2-space (`shfmt -i 2`); `.editorconfig` is the
-  source of truth and `shfmt`/editors both read it.
-- **Scope** — `core/` is a vendored git-subtree from
-  [`dotfiles-core`](../dotfiles-core); the lint targets and pre-commit hooks
-  **exclude** it on purpose. Editing it here would diverge the subtree, so its
-  Lua/shell is linted in _that_ repo's CI. `make core-advisory` surfaces any
-  `core/` findings locally without gating.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Upstream (`core/`) follow-ups
+<!-- CONTACT -->
+## Contact
 
-These were found during audit but belong to `dotfiles-core` (fix there, then
-`git subtree pull` / `sync-core.sh` brings them down — don't hand-edit `core/`):
+Garrett Allen - [@gerrrrt](https://x.com/gerrrrt) - <garrettallen2@gmail.com>
 
-- `core/tmux/scripts/tmux-scratch.sh` — shebang is `#!/bin/bash`; every other
-  script uses `#!/usr/bin/env bash`.
-- `core/tmux/scripts/tmux-sessionizer.sh` — superseded by `tmux-sesh.sh` (per
-  `core.manifest`); it's dead and should be removed upstream.
-- `core/maint/dotfiles-maint.sh` — ShellCheck SC2015 (`A && B || C`) and SC2016.
-- `core/tmux/scripts/tmux-menu.sh` — ShellCheck SC2016.
+Project Link: [dotgibson](https://github.com/dotgibson/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- Markdown Links & Images -->
+[repo-docs]: https://dotgibson.github.io/dotfiles-web/docs/repos/dotfiles-MacBook
+[migration]: https://dotgibson.github.io/dotfiles-web/docs/guides/migrating-macos
+[dotgibson-shield]: https://img.shields.io/github/v/release/dotgibson/dotfiles-MacBook?style=flat-square&label=dotgibson&labelColor=181717&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAF1klEQVR4nLSWbUxT7RnHr9PT09MXSltaoC9QXkqR16Iwhb0Iw8VYYE7jPri5aBaZzpmFZbpolpn4QeMyM%2BM%2B7MVt0Q9LNJIlxCzqxGWS6aKAig51vBQKIi3QltpCS0%2Fbc879pD1N3%2Bnz4fG5Pl2977v%2F331d131f5%2BZrddWQZAgAgy9uCRlefICzT6GeIsP%2FXF15kahmu9JglGmLRQoRQdIQWgu77BuWGe%2Fo%2BOqym8odApaWomTT1%2Bl2HqirahaTuJ9kQMggkgYhDRGfRiQDZBi9fuf52%2BD7l1b3ZhRcmq%2FMnBHmibuO7fvWoTalVoDjQRwL8RGgEOtzB0MbtBDnkRjGR0AgTK%2BQfNukr1LKXlhXKZpJSxTKGoFSq9vf16tQ8%2FiEh094Vu0L449mLGMup20DRWuFYVCiFm%2BvU36nTbOlMB%2BnCDxIOBzhvv6nFpc3TS0dUKDRHzh1Jk9O8wlPYN326Oa%2FJobnN8shAOxqKjrdXa8WSnGKWPewR%2FuHLG5P8oKUFJHi%2FH19F6UKEQ%2BnbJap27%2B%2BtWR15VAHgLkV%2F%2F0xW6OuQCfNE4PgmyX6f0xZKYbJDuj43lmtoYqHU%2FaZdwNXr4eoUG51zqgw%2B%2FCtrbm0UCeRynBhqVj2YC4RNC%2FuqStbKkydAODzeO7%2B6QYTpnOIYgB729R729RY9DAGafb0wDOHLwAA5vKK1mJNFoCpsxeLLn%2Fy91uU359719%2FfVXL%2BSM35IzU9rcXciCcQujz0imOfbGhOB0jkGo2hFQBW7Quzr0Zzq6vyBT%2FuKY%2BHErfBmQWLK1Lhr6l1OkleCqC0poPb%2FuTwv3OrA8DPDhgkokgLmLX77o86kqcGJmaj5xjr1JWlAAr1Js75MDEGAAI%2B1mvWX%2F1JY29XmYDPS5ZoNsrM24si1xSh3%2FRbGBYlz%2F73g41ztqliqYv1onyVHgDocMjjXASAKycavlqnZBHa2ajcasjv%2B8MbAPhRV9nI5MezB41crIPPHWOW9Gtl9XhDDCMCokIqSwGQ4shvyucFhEQCnqlSdm9k%2BdKt6XM%2FqO7aof7t8YbIIW5SHdpVIhUTAOAP0L8bmM3MHgJwByidQCgnhSmAqOEYnQ8AgRBr%2FuUzKsgggIs3pyVCfkeTCgAmFtaNOgm39C%2F3511r2W8JYvIAJbIaAwQ3vKAEoVgRaTQIBYKxqxgMs6euvdUXiQDgeHd5rV7K1fb2kC2rOgaYghQBMJ5grI3HUGuuhQiNIOWq8sy%2FLTgCKplgT0ZtCyprWw7%2FvKCyNr6yQqYg8cim59a9KQDnwv84R1%2F99UwAzsMya4vxeOYLN7YePGG%2BcAPjxXS%2BoavknFfOlRTAh8nHKNqLa1v2ZwK6dxQZtHk5ahu3%2FcYmLsoh%2B%2FsUgN%2BztDQzEvkYFBurGnan%2FS1%2B1P98L1FbxLIPzh193X%2FtwbmjiGUBYHd5nVFRCABPlxdtfh%2B3LHGKxof%2Bqo90C6yj58yi9Tm1kWjr94ZXsGhTuDuynAx2z0245yY4X06Kf9HWFd0N%2BuPbsUR64%2B3a57Erig2qIoOIlJSUNE69GWTZRFufXvRNL%2Fo2ywyJE1fMP6xWqHBEP5yfvP7%2FbAAAsFufG01mkVCqkGvLyrbNTD2mw9kfDckmE0oudx9rUZfhiF5Zd%2F%2F00QDF0NkBTJhanB3e0riHJIRKhXarqWfdu%2Bx0WnOot1ftuNR90lhQzEO0L7B2YvCm3b%2BWNI%2ByffSLq757%2BPcquYaIvBtgdcXycuzO9MzTFdccd9IwDNMVlDaXbzPXtxsVhQRDEQzl8i6d%2Buf12Y%2BONDVMo6vOfHWJxHLz3l811u8WAEZABCNAAHSI8n8k2HABKRJjLJ8JECxFMAE%2BHXhiGb7yn35vcCNDKVsEcSuv%2BEpn%2B7Etla0CwAQIOBLBhrkt85kAnwm8mX95e%2FTOa9vUZiIxQI43r0Kura9uN5SYNMoyuVDGZ2nK73C65iy28Rezo44152bSKYAvz3ifVA1lDn0WAAD%2F%2F%2FWvXexgMwqgAAAAAElFTkSuQmCC
+[dotgibson-url]: https://github.com/dotgibson/dotfiles-MacBook/releases/latest
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/dotgibson/dotfiles-MacBook/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI
+[ci-url]: https://github.com/dotgibson/dotfiles-MacBook/actions/workflows/ci.yml
+[lastcommit-shield]: https://img.shields.io/github/last-commit/dotgibson/dotfiles-MacBook?branch=main&style=flat-square&logo=git&logoColor=white
+[contributors-shield]: https://img.shields.io/github/contributors/dotgibson/dotfiles-MacBook.svg?style=flat-square&logo=github
+[contributors-url]: https://github.com/dotgibson/dotfiles-MacBook/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/dotgibson/dotfiles-MacBook.svg?style=flat-square&logo=github
+[forks-url]: https://github.com/dotgibson/dotfiles-MacBook/network/members
+[stars-shield]: https://img.shields.io/github/stars/dotgibson/dotfiles-MacBook.svg?style=flat-square&logo=github
+[stars-url]: https://github.com/dotgibson/dotfiles-MacBook/stargazers
+[issues-shield]: https://img.shields.io/github/issues/dotgibson/dotfiles-MacBook?style=flat-square&logo=github
+[issues-url]: https://github.com/dotgibson/dotfiles-MacBook/issues
+[showcase-shield]: https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square
+[showcase-url]: https://dotgibson.github.io/dotfiles-web
+[license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-MacBook.svg?style=flat-square
+[license-url]: https://github.com/dotgibson/dotfiles-MacBook/blob/main/LICENSE
+[linkedin-shield]: https://img.shields.io/badge/LinkedIn-blue?style=flat-square&logo=linkedin&logoColor=white
+[linkedin-url]: https://linkedin.com/in/garrettallen2
+[docs]: https://dotgibson.github.io/dotfiles-web/
