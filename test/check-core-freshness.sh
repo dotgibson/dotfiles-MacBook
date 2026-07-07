@@ -87,8 +87,9 @@ fi
 
 # Behind (or diverged). Report the SHAs and how to update, then exit 2 (drift) so a
 # scheduled run surfaces it as a nudge — distinct from the exit-1 hard failures above.
-# This repo has no Makefile, so the remediation is the raw subtree pull + a links-only
-# bootstrap re-run, printed as two copy-pasteable commands (no trailing comma/prose).
+# The remediation is the portable raw subtree pull + a links-only bootstrap re-run — the
+# fleet-standard commands that work in every repo (Makefile or not), printed as two
+# copy-pasteable lines (no trailing comma/prose).
 {
   printf '%s%s%s vendored core/ is behind upstream %s@%s\n' "$c_y" "$UX_WARN" "$c_0" "$UPSTREAM" "$BRANCH"
   printf '    vendored: %s\n    upstream: %s\n' "${SPLIT:0:12}" "${TIP:0:12}"
