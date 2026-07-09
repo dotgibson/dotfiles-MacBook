@@ -9,15 +9,23 @@
 # on every login shell — which matters because the `exec tmux` below starts a login
 # shell per pane. Regenerate only when the brew binary is newer than the cache. This
 # is a zprofile-local cache (Core's _cache_eval isn't loaded yet at login-shell time).
-# Falls back to a live eval when the cache dir isn't writable, so PATH is never lost.
+# The cache filename is keyed on the brew PREFIX (homebrew/local), so a box that has
+# (or switches to) the other brew never sources the wrong prefix's env. On the regen
+# path we source ONLY freshly-written content: if the write fails (unwritable dir, full
+# disk) we fall back to a live eval rather than sourcing a stale cache — so PATH is never
+# lost and never stale.
 () {
-  local brew cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/brew-shellenv.zsh"
+  local brew
   for brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
     [[ -x "$brew" ]] || continue
-    if [[ ! -s "$cache" || "$brew" -nt "$cache" ]]; then
-      mkdir -p "${cache:h}" 2>/dev/null && "$brew" shellenv >| "$cache" 2>/dev/null
+    local cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/brew-shellenv-${brew:h:h:t}.zsh"
+    if [[ -s "$cache" && ! "$brew" -nt "$cache" ]]; then
+      source "$cache"                                      # fresh cache → no brew fork
+    elif { mkdir -p "${cache:h}" && "$brew" shellenv >| "$cache"; } 2>/dev/null; then
+      source "$cache"                                      # regenerated → source fresh write
+    else
+      eval "$("$brew" shellenv)"                           # uncacheable → live eval (never stale)
     fi
-    [[ -s "$cache" ]] && source "$cache" || eval "$("$brew" shellenv)"
     break
   done
 }
