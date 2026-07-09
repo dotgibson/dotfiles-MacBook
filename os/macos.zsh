@@ -9,17 +9,19 @@
 # shell out to pbcopy/pbpaste, so no aliases are needed here.
 
 # ── tool completions (Homebrew-installed CLIs that ship zsh completions) ─────
-# direnv must hook live (it injects a precmd that varies per dir). gh/uv/ty emit
-# deterministic completion scripts, so cache them via Core's _cache_eval (from
-# tools.zsh) — one cheap `source` instead of spawning the generator every shell.
-# _cache_eval self-guards on the binary being present and regenerates only when
-# the binary is newer than the cache.
-command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
+# direnv/gh/uv/ty all emit DETERMINISTIC scripts: `direnv hook zsh` installs a precmd
+# whose per-directory behavior runs at RUNTIME, but the generated hook TEXT is static
+# for a given binary — exactly like mise/zoxide in tools.zsh, which Core already caches.
+# So route all four through Core's _cache_eval (from tools.zsh) — one cheap `source`
+# instead of spawning each generator every shell. _cache_eval self-guards on the binary
+# being present and regenerates only when the binary is newer than the cache.
 if (( $+functions[_cache_eval] )); then
+  _cache_eval direnv direnv hook zsh
   _cache_eval gh gh completion -s zsh
   _cache_eval uv uv generate-shell-completion zsh
   _cache_eval ty ty generate-shell-completion zsh
 else  # bare fallback if os.zsh is sourced without Core's tools.zsh
+  command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh 2>/dev/null)"
   command -v gh >/dev/null 2>&1 && eval "$(gh completion -s zsh 2>/dev/null)"
   command -v uv >/dev/null 2>&1 && eval "$(uv generate-shell-completion zsh 2>/dev/null)"
   command -v ty >/dev/null 2>&1 && eval "$(ty generate-shell-completion zsh 2>/dev/null)"
