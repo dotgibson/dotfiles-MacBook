@@ -49,6 +49,7 @@ brew "ripgrep"       # grep
 brew "fd"            # find
 brew "delta"         # git diff
 brew "dust"          # du
+brew "duf"           # df   (core-doctor probes this; disk usage/free)
 brew "bottom"        # top  (binary: btm — kept; no alias points here)
 brew "btop"          # top  (core aliases top/htop → btop expect this binary)
 brew "procs"         # ps
