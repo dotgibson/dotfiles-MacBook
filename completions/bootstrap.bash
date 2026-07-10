@@ -12,7 +12,7 @@
 # Flags mirror bootstrap.sh's parser (KNOWN_FLAGS) — keep them in step.
 _bootstrap_sh_complete() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
-  local flags='--links-only --no-brew --macos-defaults --set-shell --dry-run --quiet -n -q -h --help'
+  local flags='--links-only --no-brew --macos-defaults --set-shell --only --skip --uninstall --dry-run -n --quiet -q --json -h --help'
   # shellcheck disable=SC2207  # word-split is intentional for compgen output
   COMPREPLY=($(compgen -W "$flags" -- "$cur"))
 }
