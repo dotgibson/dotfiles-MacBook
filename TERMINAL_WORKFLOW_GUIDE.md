@@ -159,8 +159,10 @@ per-OS overlay:
 
 ### 2.2 Core options & the prefix
 
-- **Prefix: `C-a`** (screen-style; `C-b` unbound). `C-a C-a` = `last-window`;
-  `C-a` again sends a literal `C-a` to the app.
+- **Prefix: `C-a`** (screen-style; `C-b` unbound). `C-a C-a` = `last-window`
+  (toggle to the last window). The reset layer defines `bind C-a send-prefix`
+  *then* `bind C-a last-window`, and the later bind wins — so a literal `C-a` is
+  **not** passed through to the running app; the double-tap toggles windows.
 - `mouse on`, `history-limit 100000`, `base-index 1`, `pane-base-index 1`,
   `renumber-windows on`.
 - `detach-on-destroy off` — killing a session **jumps to another**, doesn't drop you
