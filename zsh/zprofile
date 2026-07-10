@@ -40,14 +40,11 @@
 # rather than edited into the vendored core/mise/config.toml.
 export MISE_TRUSTED_CONFIG_PATHS="$HOME/dotfiles-MacBook${MISE_TRUSTED_CONFIG_PATHS:+:$MISE_TRUSTED_CONFIG_PATHS}"
 
-# 1Password SSH agent (macOS). `ssh`/`git` use keys held in 1Password.
-# Comment out if you don't use the 1Password agent.
-export SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-
 # 1Password SSH agent (macOS). `ssh`/`git` use keys held in 1Password. Guarded on
 # the socket actually existing, so this self-disables (and ssh falls back to the
 # default agent) when 1Password isn't installed/running — pointing SSH_AUTH_SOCK at
-# a missing socket otherwise breaks ssh-add and every agent operation.
+# a missing socket otherwise breaks ssh-add and every agent operation. Comment out
+# the whole block if you don't use the 1Password agent.
 _op_ssh_sock="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 [[ -S "$_op_ssh_sock" ]] && export SSH_AUTH_SOCK="$_op_ssh_sock"
 unset _op_ssh_sock
