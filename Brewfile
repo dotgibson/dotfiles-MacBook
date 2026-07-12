@@ -47,7 +47,7 @@ brew "eza"           # ls
 brew "bat"           # cat
 brew "ripgrep"       # grep
 brew "fd"            # find
-brew "delta"         # git diff
+brew "git-delta"     # git diff  (canonical formula; `delta` is only an alias of it)
 brew "dust"          # du
 brew "duf"           # df   (core-doctor probes this; disk usage/free)
 brew "bottom"        # top  (binary: btm — kept; no alias points here)
