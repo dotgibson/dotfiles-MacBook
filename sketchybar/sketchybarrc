@@ -38,17 +38,17 @@ sketchybar --bar \
 # A short slide animation eases every label/icon swap (workspace switches, volume, battery).
 sketchybar --default \
   updates=on \
-  icon.font="$FONT:Bold:18.0" \
+  icon.font="$FONT:Bold:14.0" \
   icon.color="$FG" \
-  label.font="$FONT:Semibold:18.0" \
+  label.font="$FONT:Semibold:14.0" \
   label.color="$FG" \
   background.drawing=off \
-  padding_left=5 \
-  padding_right=5 \
-  label.padding_left=4 \
-  label.padding_right=4 \
-  icon.padding_left=4 \
-  icon.padding_right=4 \
+  padding_left=4 \
+  padding_right=4 \
+  label.padding_left=3 \
+  label.padding_right=3 \
+  icon.padding_left=3 \
+  icon.padding_right=3 \
   animation_curve=sin \
   animation_duration=15
 
@@ -57,7 +57,7 @@ sketchybar --default \
 sketchybar --add item logo left \
   --set logo \
   icon=" " \
-  icon.font="$FONT:Bold:18.0" \
+  icon.font="$FONT:Bold:14.0" \
   icon.color="$ACCENT" \
   label.drawing=off \
   click_script="sketchybar --reload"
@@ -90,7 +90,8 @@ sketchybar --add item front_app left \
   --set front_app \
   icon.drawing=off \
   label.color="$ACCENT" \
-  label.font="$FONT:Bold:18.0" \
+  label.font="$FONT:Bold:14.0" \
+  label.max_chars=22 \
   script="$PLUGIN_DIR/front_app.sh" \
   --subscribe front_app front_app_switched
 
@@ -199,7 +200,7 @@ sketchybar --add item network right \
 # Now-playing cluster (leftmost of the right group): prev · play/pause · next · title—artist.
 # The `media` item (play/pause) drives its siblings; transport clicks call media-control directly.
 sketchybar --add item media.info right \
-  --set media.info label.color="$MAGENTA" icon.drawing=off drawing=off
+  --set media.info label.color="$MAGENTA" label.max_chars=22 icon.drawing=off drawing=off
 sketchybar --add item media.next right \
   --set media.next icon="󰒭" label.drawing=off drawing=off \
   click_script="media-control next-track >/dev/null 2>&1"
