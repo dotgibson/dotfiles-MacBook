@@ -56,7 +56,7 @@ sketchybar --default \
 # Apple glyph (Zebar shows the Windows glyph); click reloads the bar (handy after editing).
 sketchybar --add item logo left \
   --set logo \
-  icon=" " \
+  icon=" " \
   icon.font="$FONT:Bold:18.0" \
   icon.color="$ACCENT" \
   label.drawing=off \

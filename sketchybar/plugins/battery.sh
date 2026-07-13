@@ -25,17 +25,18 @@ if [ "$CHARGING" -eq 1 ]; then
   exit 0
 fi
 
-# Discharging: fill glyph + threshold color (fa-battery-4..0, same set Zebar uses).
+# Discharging: fill glyph + threshold color (fa-battery-4..0, the set Zebar uses). Glyphs are
+# emitted as UTF-8 octal (like weather.sh) so the fa PUA codepoints survive editing/round-trips.
 if [ "$PCT" -gt 90 ]; then
-  ICON=""
+  ICON="$(printf '\357\211\200')" # fa-battery-4 (full)
 elif [ "$PCT" -gt 70 ]; then
-  ICON=""
+  ICON="$(printf '\357\211\201')" # fa-battery-3
 elif [ "$PCT" -gt 40 ]; then
-  ICON=""
+  ICON="$(printf '\357\211\202')" # fa-battery-2 (half)
 elif [ "$PCT" -gt 20 ]; then
-  ICON=""
+  ICON="$(printf '\357\211\203')" # fa-battery-1
 else
-  ICON=""
+  ICON="$(printf '\357\211\204')" # fa-battery-0 (empty)
 fi
 
 if [ "$PCT" -gt 40 ]; then
