@@ -22,13 +22,13 @@ FONT="CaskaydiaCove Nerd Font"
 
 # ── Bar (floating rounded — matched to Zebar's inset pill; see PARITY.md geometry) ────────────
 sketchybar --bar \
-  height=20 \
+  height=36 \
   position=top \
-  padding_left=0 \
-  padding_right=0 \
+  padding_left=2 \
+  padding_right=2 \
   color="$BAR_COLOR" \
   corner_radius=9 \
-  y_offset=0 \
+  y_offset=4 \
   margin=8 \
   blur_radius=20
 
@@ -38,9 +38,9 @@ sketchybar --bar \
 # A short slide animation eases every label/icon swap (workspace switches, volume, battery).
 sketchybar --default \
   updates=on \
-  icon.font="$FONT:Bold:14.0" \
+  icon.font="$FONT:Bold:17.0" \
   icon.color="$FG" \
-  label.font="$FONT:Semibold:14.0" \
+  label.font="$FONT:Semibold:17.0" \
   label.color="$FG" \
   background.drawing=off \
   padding_left=4 \
@@ -57,7 +57,7 @@ sketchybar --default \
 sketchybar --add item logo left \
   --set logo \
   icon=" " \
-  icon.font="$FONT:Bold:14.0" \
+  icon.font="$FONT:Bold:17.0" \
   icon.color="$ACCENT" \
   label.drawing=off \
   click_script="sketchybar --reload"
@@ -90,7 +90,7 @@ sketchybar --add item front_app left \
   --set front_app \
   icon.drawing=off \
   label.color="$ACCENT" \
-  label.font="$FONT:Bold:14.0" \
+  label.font="$FONT:Bold:17.0" \
   label.max_chars=22 \
   script="$PLUGIN_DIR/front_app.sh" \
   --subscribe front_app front_app_switched

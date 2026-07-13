@@ -87,15 +87,15 @@ on-window-detected = [
 [gaps]
 inner.horizontal = 4
 inner.vertical = 4
-outer.bottom = 1
+outer.bottom = 4
 # Top gap reserves the strip SketchyBar floats in. It must clear the bar's footprint
 # (sketchybarrc: bar height=20 at y_offset=0, so ~20px) on EVERY display, because the macOS
 # menu bar is set to auto-hide ("Always"), so the system reserves no top strip of its own —
 # 21 leaves a ~1px breather below the bar. (The GlazeWM twin reserves its own top gap for Zebar;
 # the pixel value differs because the bars differ.)
-outer.top = 21
-outer.right = 1
-outer.left = 1
+outer.top = 48
+outer.right = 4
+outer.left = 4
 
 # ── Main mode keybindings ───────────────────────────────────────────────────────────────────
 [mode.main.binding]
@@ -121,8 +121,8 @@ alt-i = 'resize height -50'
 # Layout
 alt-v = 'layout tiles horizontal vertical' # toggle split orientation (GlazeWM: toggle-tiling-direction)
 alt-f = 'fullscreen'
-alt-shift-space = 'layout floating tiling'  # toggle floating for the focused window
-alt-shift-q = 'close'                       # close the focused window
+alt-shift-space = 'layout floating tiling' # toggle floating for the focused window
+alt-shift-q = 'close'                      # close the focused window
 
 # Workspaces 1–5
 alt-1 = 'workspace 1'
