@@ -3,6 +3,13 @@
 # Chosen over yabai: pure config, no SIP disable, no scripting-addition daemon. Fits the
 # "declarative, committed-as-code" model of this repo. Symlinked to ~/.config/aerospace/.
 #
+# SHARED KEYMAP: this file is kept keystroke-for-keystroke identical to the Windows host's GlazeWM
+# config (dotfiles-Windows/desktop/glazewm/config.yaml). Every binding below has an exact twin
+# there; the two window managers are a single muscle-memory across macOS and Windows. Only bindings
+# both WMs can express identically are kept — WM-specific extras (accordion, service mode,
+# screenshots, per-app workspace pinning, directional monitor-move) were dropped for strict parity.
+# Change one side → change the other.
+#
 # Modifier convention: alt (⌥) is the WM modifier here. Ghostty sets macos-option-as-alt=true,
 # so alt bindings never collide with terminal accent input. The Karabiner Tab-hyper "window"
 # layer (karabiner/karabiner.json) is the ergonomic alternative to these alt chords and mirrors
@@ -15,7 +22,7 @@ config-version = 2
 
 # NOTE: `auto-reload-config` is intentionally omitted — it isn't recognized by all released
 # AeroSpace versions (older binaries reject it as an "Unknown top-level key" and fail to parse
-# the whole file). Reload manually instead: service mode (alt-shift-; then esc) or
+# the whole file). Reload manually instead: alt-shift-r (the GlazeWM-parity reload bind) or
 # `aerospace reload-config`.
 
 # Start AeroSpace at login.
@@ -31,7 +38,8 @@ automatically-unhide-macos-hidden-apps = true
 #                   launchd ordering races AeroSpace.
 #   • borders     — JankyBorders (FelixKratz), draws a colored ring around the focused window so
 #                   the active tile is unmistakable. Palette matches tokyonight-storm: blue accent
-#                   when focused, comment-grey when not. Installed via the Brewfile.
+#                   when focused, comment-grey when not. Installed via the Brewfile. The GlazeWM
+#                   twin is its native window_effects border (same #7aa2f7 / #565f89 palette).
 after-startup-command = [
   'exec-and-forget sketchybar',
   'exec-and-forget borders active_color=0xff7aa2f7 inactive_color=0xff565f89 width=4.0',
@@ -45,11 +53,12 @@ exec-on-workspace-change = [
 ]
 
 # Lazily warp the mouse to the center of the newly-focused monitor (i3's default). Keeps the
-# pointer where your eyes already are after a cross-display focus jump.
+# pointer where your eyes already are after a cross-display focus jump. (GlazeWM twin:
+# cursor_jump on window_focus.)
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
 # Keep workspaces 1–5 alive even when empty so the sketchybar spaces widget always renders the
-# full row (the bar enumerates these on launch).
+# full row (the bar enumerates these on launch). GlazeWM ships the same five workspaces.
 persistent-workspaces = ['1', '2', '3', '4', '5']
 
 # ── Normalization ───────────────────────────────────────────────────────────────────────────
@@ -59,12 +68,12 @@ enable-normalization-opposite-orientation-for-nested-containers = true
 # ── Layout & gaps ───────────────────────────────────────────────────────────────────────────
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto' # widescreen → horizontal, tall → vertical
-accordion-padding = 10                      # visible "peek" of stacked windows in accordion mode
 
-# ── Auto-placement: float chrome, assign apps to home workspaces ──────────────────────────────
+# ── Auto-placement: float chrome ───────────────────────────────────────────────────────────────
 # Runs once per newly-detected window. Bundle IDs come from AeroSpace's goodies list / `aerospace
-# list-apps`. Float the small utility/settings windows that tile badly; send the two daily-driver
-# apps to a stable home so muscle memory ("terminal lives on 1, web on 2") always holds.
+# list-apps`. Float the small utility/settings windows that tile badly. (GlazeWM twin: the
+# window_rules `ignore` list — same "don't tile OS chrome" intent, per-OS app list.) Per-app
+# workspace pinning was removed for GlazeWM parity (GlazeWM has no workspace-assignment rule).
 # (Must precede the [gaps] table — bare keys after a table header would nest under it.)
 on-window-detected = [
   # Utilities & dialogs → floating (they have no business in the tile tree)
@@ -73,14 +82,6 @@ on-window-detected = [
   { if.app-id = 'com.apple.calculator', run = 'layout floating' },
   { if.app-id = 'com.apple.finder', run = 'layout floating' },
   { if.app-id = 'com.1password.1password', run = 'layout floating' },
-
-  # Daily drivers → home workspaces (1 = terminal, 2 = web). Drop/extend to taste.
-  { if.app-id = 'com.mitchellh.ghostty', run = 'move-node-to-workspace 1' },
-  { if.app-id = 'com.apple.Safari', run = 'move-node-to-workspace 2' },
-  # Templates — uncomment + adjust:
-  # { if.app-id = 'com.google.Chrome',         run = 'move-node-to-workspace 2' },
-  # { if.app-id = 'com.tinyspeck.slackmacgap', run = 'move-node-to-workspace 4' },
-  # { if.app-id = 'com.hnc.Discord',           run = 'move-node-to-workspace 5' },
 ]
 
 [gaps]
@@ -89,10 +90,8 @@ inner.vertical = 4
 outer.bottom = 1
 # Top gap reserves the strip SketchyBar floats in. It must clear the bar's full footprint
 # (sketchybarrc: y_offset 4 + height 40 = 44px) on EVERY display, because the macOS menu bar is
-# set to auto-hide ("Always"), so the system reserves no top strip of its own. A flat 48 keeps
-# windows just below the bar with a little breathing room. (The old per-monitor value gave the
-# built-in display only 10px — fine when the menu bar was visible, but it let windows slide under
-# the bar once the menu bar was hidden.)
+# set to auto-hide ("Always"), so the system reserves no top strip of its own. (The GlazeWM twin
+# reserves its own top gap for Zebar — the pixel value differs because the bars differ.)
 outer.top = 21
 outer.right = 1
 outer.left = 1
@@ -111,16 +110,20 @@ alt-shift-j = 'move down'
 alt-shift-k = 'move up'
 alt-shift-l = 'move right'
 
-# Quick nudge-resize (the dedicated resize mode below is for sustained adjustment)
-alt-minus = 'resize smart -50'
-alt-equal = 'resize smart +50'
+# Quick nudge-resize (per-axis; the dedicated resize mode below is for sustained adjustment).
+# Mirrors GlazeWM: u/p = width -/+, o/i = height +/-.
+alt-u = 'resize width -50'
+alt-p = 'resize width +50'
+alt-o = 'resize height +50'
+alt-i = 'resize height -50'
 
-# Layout toggles
-alt-slash = 'layout tiles horizontal vertical'
-alt-comma = 'layout accordion horizontal vertical'
+# Layout
+alt-v = 'layout tiles horizontal vertical' # toggle split orientation (GlazeWM: toggle-tiling-direction)
 alt-f = 'fullscreen'
+alt-shift-space = 'layout floating tiling'  # toggle floating for the focused window
+alt-shift-q = 'close'                       # close the focused window
 
-# Workspaces 1–5 (extend as needed)
+# Workspaces 1–5
 alt-1 = 'workspace 1'
 alt-2 = 'workspace 2'
 alt-3 = 'workspace 3'
@@ -134,52 +137,28 @@ alt-shift-3 = ['move-node-to-workspace 3', 'workspace 3']
 alt-shift-4 = ['move-node-to-workspace 4', 'workspace 4']
 alt-shift-5 = ['move-node-to-workspace 5', 'workspace 5']
 
-# Cycle workspaces (wraps around the populated set)
-alt-shift-period = 'workspace --wrap-around next'
-alt-shift-comma = 'workspace --wrap-around prev'
-
-# Back-and-forth to previous workspace
-alt-tab = 'workspace-back-and-forth'
-# Throw the current workspace to the next monitor (multi-display)
-alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+# Workspace navigation (GlazeWM: a = prev, s = next, d = recent)
+alt-a = 'workspace --wrap-around prev'
+alt-s = 'workspace --wrap-around next'
+alt-d = 'workspace-back-and-forth'
 
 # Open a new Ghostty window (`open -n` forces a fresh instance rather than just
 # refocusing an existing one). Single-line on purpose: AeroSpace's TOML parser
-# (TOMLDecoder) does not accept multi-line '''…''' literal strings.
+# (TOMLDecoder) does not accept multi-line '''…''' literal strings. (GlazeWM twin: `shell-exec wt`.)
 alt-enter = 'exec-and-forget open -na Ghostty'
-
-# Screenshot a region straight to the clipboard
-alt-shift-s = 'exec-and-forget screencapture -i -c'
 
 # Enter the dedicated resize mode (h/j/k/l to size, esc/enter to leave)
 alt-r = 'mode resize'
 
-# Enter a transient "service" mode for the less-common actions
-alt-shift-semicolon = 'mode service'
+# Reload the config (GlazeWM: wm-reload-config)
+alt-shift-r = 'reload-config'
 
 # ── Resize mode ─────────────────────────────────────────────────────────────────────────────
+# Identical to GlazeWM's resize binding-mode: h/l size width, k/j size height, esc/enter exit.
 [mode.resize.binding]
 h = 'resize width -50'
-j = 'resize height +50'
-k = 'resize height -50'
 l = 'resize width +50'
-minus = 'resize smart -50'
-equal = 'resize smart +50'
+k = 'resize height +50'
+j = 'resize height -50'
 enter = 'mode main'
 esc = 'mode main'
-
-# ── Service mode ────────────────────────────────────────────────────────────────────────────
-[mode.service.binding]
-esc = ['reload-config', 'mode main']
-r = ['flatten-workspace-tree', 'mode main'] # reset the tree to a sane layout
-f = [
-  'layout floating tiling',
-  'mode main',
-] # toggle floating for the focused window
-backspace = ['close-all-windows-but-current', 'mode main']
-
-# Re-parent the focused window into its neighbor (build explicit splits)
-alt-shift-h = ['join-with left', 'mode main']
-alt-shift-j = ['join-with down', 'mode main']
-alt-shift-k = ['join-with up', 'mode main']
-alt-shift-l = ['join-with right', 'mode main']
