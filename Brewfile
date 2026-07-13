@@ -112,7 +112,6 @@ brew "navi"          # interactive fzf-driven cheatsheets (os/macos.zsh aliases 
 cask "nikitabobko/tap/aerospace"          # tiling WM, TOML-configured, no SIP disable (config: aerospace/)
 brew "FelixKratz/formulae/sketchybar"     # programmable menu bar (config: sketchybar/)
 brew "FelixKratz/formulae/borders"        # JankyBorders — focused-window ring (aerospace after-startup-command)
-brew "ungive/media-control/media-control" # now-playing session for sketchybar's media widget (plugins/media.sh)
 cask "karabiner-elements"                 # keyboard remap: Caps→Ctrl/Esc + Tab-hyper layers (config: karabiner/)
 
 # ── 1Password ─────────────────────────────────────────────────────────────────

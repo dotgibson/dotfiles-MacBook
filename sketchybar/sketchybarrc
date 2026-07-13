@@ -8,7 +8,7 @@
 # This bar is kept at design parity with the Windows/GlazeWM host's Zebar bar
 # (dotfiles-Windows/desktop/zebar). The shared contract — layout order, geometry, palette,
 # thresholds and glyphs — lives in PARITY.md next to this file; change both bars together.
-#   Layout:  logo · workspaces · front_app · pomodoro | clock | media · network · volume · disk ·
+#   Layout:  logo · workspaces · front_app · pomodoro | clock | network · volume · disk ·
 #            memory · cpu · battery · weather · ☕caffeinate · power
 #   caffeinate is macOS-only (no Zebar twin); Zebar's binding-mode is Windows-only.
 # ================================================================================================
@@ -113,9 +113,9 @@ sketchybar --add item clock center \
   update_freq=15 \
   script="$PLUGIN_DIR/clock.sh"
 
-# ── Right: now-playing · system stats · power (added right-to-left) ──────────────────────────
+# ── Right: system stats · power (added right-to-left) ────────────────────────────────────────
 # Items are added first=rightmost, so the visual left→right order ends up:
-#   media · network · volume · disk · memory · cpu · battery · weather · ☕caffeinate · power
+#   network · volume · disk · memory · cpu · battery · weather · ☕caffeinate · power
 
 # Power menu (far-right): a power glyph whose click toggles a popup of lock / sleep / restart /
 # shutdown — the twin of Zebar's <PowerMenu/>. Actions run via osascript / pmset.
@@ -196,21 +196,6 @@ sketchybar --add item network right \
   --set network \
   update_freq=3 \
   script="$PLUGIN_DIR/network.sh"
-
-# Now-playing cluster (leftmost of the right group): prev · play/pause · next · title—artist.
-# The `media` item (play/pause) drives its siblings; transport clicks call media-control directly.
-sketchybar --add item media.info right \
-  --set media.info label.color="$MAGENTA" label.max_chars=22 icon.drawing=off drawing=off
-sketchybar --add item media.next right \
-  --set media.next icon="󰒭" label.drawing=off drawing=off \
-  click_script="media-control next-track >/dev/null 2>&1"
-sketchybar --add item media right \
-  --set media icon="󰐊" label.drawing=off drawing=off update_freq=3 \
-  click_script="media-control toggle-play-pause >/dev/null 2>&1" \
-  script="$PLUGIN_DIR/media.sh"
-sketchybar --add item media.prev right \
-  --set media.prev icon="󰒮" label.drawing=off drawing=off \
-  click_script="media-control previous-track >/dev/null 2>&1"
 
 # ── Finalize ────────────────────────────────────────────────────────────────────────────────
 sketchybar --update
