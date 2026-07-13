@@ -4,6 +4,13 @@
 # The macOS analog of this repo's hand-rolled tmux status bar (core/tmux): a plugin invoked per
 # event, with one palette in colors.sh. Themed tokyonight-storm to match starship/tmux/lazygit.
 # Icons use the already-installed CaskaydiaCove Nerd Font — no sketchybar-app-font dependency.
+#
+# This bar is kept at design parity with the Windows/GlazeWM host's Zebar bar
+# (dotfiles-Windows/desktop/zebar). The shared contract — layout order, geometry, palette,
+# thresholds and glyphs — lives in PARITY.md next to this file; change both bars together.
+#   Layout:  logo · workspaces · front_app · pomodoro | clock | media · network · volume · disk ·
+#            memory · cpu · battery · weather · ☕caffeinate · power
+#   caffeinate is macOS-only (no Zebar twin); Zebar's binding-mode is Windows-only.
 # ================================================================================================
 
 CONFIG_DIR="$HOME/.config/sketchybar"
@@ -13,7 +20,7 @@ source "$CONFIG_DIR/colors.sh"
 
 FONT="CaskaydiaCove Nerd Font"
 
-# ── Bar ─────────────────────────────────────────────────────────────────────────────────────
+# ── Bar (floating rounded — matched to Zebar's inset pill; see PARITY.md geometry) ────────────
 sketchybar --bar \
   height=20 \
   position=top \
@@ -26,17 +33,16 @@ sketchybar --bar \
   blur_radius=20
 
 # ── Defaults shared by every item ───────────────────────────────────────────────────────────
-# A short slide animation makes every label/icon swap (workspace switches, volume, battery)
-# ease in instead of snapping — see plugins/aerospace.sh for the highlight transition.
+# Chip-less: items sit as plain spaced icon+text on the translucent bar (no per-item background),
+# matching Zebar's flat look. The only rounded container is the workspaces bracket below.
+# A short slide animation eases every label/icon swap (workspace switches, volume, battery).
 sketchybar --default \
   updates=on \
   icon.font="$FONT:Bold:18.0" \
   icon.color="$FG" \
   label.font="$FONT:Semibold:18.0" \
   label.color="$FG" \
-  background.color="$BG" \
-  background.corner_radius=6 \
-  background.height=20 \
+  background.drawing=off \
   padding_left=5 \
   padding_right=5 \
   label.padding_left=4 \
@@ -47,14 +53,13 @@ sketchybar --default \
   animation_duration=15
 
 # ── Left: brand anchor ──────────────────────────────────────────────────────────────────────
-# Apple glyph; click reloads the bar (handy after editing this file).
+# Apple glyph (Zebar shows the Windows glyph); click reloads the bar (handy after editing).
 sketchybar --add item logo left \
   --set logo \
   icon=" " \
   icon.font="$FONT:Bold:18.0" \
   icon.color="$ACCENT" \
   label.drawing=off \
-  background.drawing=off \
   click_script="sketchybar --reload"
 
 # ── Left: AeroSpace workspaces ──────────────────────────────────────────────────────────────
@@ -67,7 +72,6 @@ for sid in 1 2 3 4 5; do
     --set "space.$sid" \
     label="$sid" \
     icon.drawing=off \
-    background.drawing=off \
     click_script="aerospace workspace $sid" \
     script="$PLUGIN_DIR/aerospace.sh" \
     --subscribe "space.$sid" aerospace_workspace_change
@@ -76,6 +80,7 @@ done
 # Group the workspace numbers inside a single rounded container.
 sketchybar --add bracket spaces '/space\..*/' \
   --set spaces \
+  background.drawing=on \
   background.color="$BG" \
   background.corner_radius=8 \
   background.height=26
@@ -89,13 +94,57 @@ sketchybar --add item front_app left \
   script="$PLUGIN_DIR/front_app.sh" \
   --subscribe front_app front_app_switched
 
-# ── Right: system stats + keep-awake toggle (added right-to-left) ────────────────────────────
-# Battery + clock are intentionally omitted — they live in the tmux status bar, so showing them
-# here too would just duplicate. Items are added first=rightmost, so the visual left→right order
-# ends up: volume · cpu · memory · disk · network · ☕toggle.
+# ── Left: Pomodoro (25/5 timer — twin of Zebar's <Pomodoro/>) ────────────────────────────────
+# Left-click start/pause, right-click reset. State persists in $TMPDIR; see plugins/pomodoro.sh.
+sketchybar --add item pomodoro left \
+  --set pomodoro \
+  icon="󰔛" \
+  update_freq=1 \
+  click_script="$PLUGIN_DIR/pomodoro.sh click" \
+  script="$PLUGIN_DIR/pomodoro.sh"
 
-# Keep-awake toggle (far-right corner): click the cup to block display + idle system sleep, click
-# again to release. A free Amphetamine — see plugins/caffeinate.sh.
+# ── Center: clock ───────────────────────────────────────────────────────────────────────────
+# "EEE d MMM t" format, matching Zebar's date provider. Also in the tmux bar — shown here too for
+# cross-host parity (see PARITY.md).
+sketchybar --add item clock center \
+  --set clock \
+  icon="󰅐" \
+  update_freq=15 \
+  script="$PLUGIN_DIR/clock.sh"
+
+# ── Right: now-playing · system stats · power (added right-to-left) ──────────────────────────
+# Items are added first=rightmost, so the visual left→right order ends up:
+#   media · network · volume · disk · memory · cpu · battery · weather · ☕caffeinate · power
+
+# Power menu (far-right): a power glyph whose click toggles a popup of lock / sleep / restart /
+# shutdown — the twin of Zebar's <PowerMenu/>. Actions run via osascript / pmset.
+sketchybar --add item power right \
+  --set power \
+  icon="󰐥" \
+  icon.color="$ACCENT" \
+  popup.horizontal=on \
+  popup.align=right \
+  popup.background.color="$BAR_COLOR" \
+  popup.background.corner_radius=9 \
+  popup.background.border_width=1 \
+  popup.background.border_color="$GREY" \
+  click_script="sketchybar --set power popup.drawing=toggle"
+
+sketchybar --add item power.lock popup.power \
+  --set power.lock icon="󰌾" icon.color="$FG" label.drawing=off \
+  click_script="osascript -e 'tell application \"System Events\" to keystroke \"q\" using {control down, command down}'; sketchybar --set power popup.drawing=off"
+sketchybar --add item power.sleep popup.power \
+  --set power.sleep icon="󰤄" icon.color="$FG" label.drawing=off \
+  click_script="pmset sleepnow; sketchybar --set power popup.drawing=off"
+sketchybar --add item power.restart popup.power \
+  --set power.restart icon="󰜉" icon.color="$RED" label.drawing=off \
+  click_script="osascript -e 'tell application \"System Events\" to restart'; sketchybar --set power popup.drawing=off"
+sketchybar --add item power.shutdown popup.power \
+  --set power.shutdown icon="󰐥" icon.color="$RED" label.drawing=off \
+  click_script="osascript -e 'tell application \"System Events\" to shut down'; sketchybar --set power popup.drawing=off"
+
+# Keep-awake toggle (macOS-only; no Zebar twin): click the cup to block display + idle system
+# sleep, click again to release. A free Amphetamine — see plugins/caffeinate.sh.
 sketchybar --add item caffeinate right \
   --set caffeinate \
   label.drawing=off \
@@ -103,17 +152,25 @@ sketchybar --add item caffeinate right \
   click_script="$PLUGIN_DIR/caffeinate.sh toggle" \
   script="$PLUGIN_DIR/caffeinate.sh"
 
-# Network throughput ↓/↑ for the default interface (sampled from netstat between runs).
-sketchybar --add item network right \
-  --set network \
-  update_freq=3 \
-  script="$PLUGIN_DIR/network.sh"
+# Current conditions — temp °C + day/night weather glyph (twin of Zebar's weather widget).
+sketchybar --add item weather right \
+  --set weather \
+  update_freq=1800 \
+  script="$PLUGIN_DIR/weather.sh"
 
-# Free disk space on /, colored when it runs low (reads df).
-sketchybar --add item disk right \
-  --set disk \
-  update_freq=60 \
-  script="$PLUGIN_DIR/disk.sh"
+# Battery charge, colored by level; charging shows the plug bolt. Also in the tmux bar — shown
+# here too for parity with Zebar.
+sketchybar --add item battery right \
+  --set battery \
+  update_freq=120 \
+  script="$PLUGIN_DIR/battery.sh"
+
+# CPU load, colored green→yellow→red. Dependency-free (reads macOS `top`).
+sketchybar --add item cpu right \
+  --set cpu \
+  icon="󰻠" \
+  update_freq=5 \
+  script="$PLUGIN_DIR/cpu.sh"
 
 # RAM pressure, colored green→yellow→red by load (reads memory_pressure).
 sketchybar --add item memory right \
@@ -121,18 +178,38 @@ sketchybar --add item memory right \
   update_freq=15 \
   script="$PLUGIN_DIR/memory.sh"
 
-# CPU load, colored green→yellow→red. Dependency-free (reads macOS `top`).
-sketchybar --add item cpu right \
-  --set cpu \
-  icon=" " \
-  update_freq=5 \
-  script="$PLUGIN_DIR/cpu.sh"
+# Free disk space on /, colored when it runs low (reads df).
+sketchybar --add item disk right \
+  --set disk \
+  update_freq=60 \
+  script="$PLUGIN_DIR/disk.sh"
 
-# Output volume (leftmost of the cluster); cyan to match @tn_cyan.
+# Output volume; cyan to match @tn_cyan.
 sketchybar --add item volume right \
   --set volume \
   script="$PLUGIN_DIR/volume.sh" \
   --subscribe volume volume_change
+
+# Network throughput ↓/↑ for the default interface (sampled from netstat between runs).
+sketchybar --add item network right \
+  --set network \
+  update_freq=3 \
+  script="$PLUGIN_DIR/network.sh"
+
+# Now-playing cluster (leftmost of the right group): prev · play/pause · next · title—artist.
+# The `media` item (play/pause) drives its siblings; transport clicks call media-control directly.
+sketchybar --add item media.info right \
+  --set media.info label.color="$MAGENTA" icon.drawing=off drawing=off
+sketchybar --add item media.next right \
+  --set media.next icon="󰒭" label.drawing=off drawing=off \
+  click_script="media-control next-track >/dev/null 2>&1"
+sketchybar --add item media right \
+  --set media icon="󰐊" label.drawing=off drawing=off update_freq=3 \
+  click_script="media-control toggle-play-pause >/dev/null 2>&1" \
+  script="$PLUGIN_DIR/media.sh"
+sketchybar --add item media.prev right \
+  --set media.prev icon="󰒮" label.drawing=off drawing=off \
+  click_script="media-control previous-track >/dev/null 2>&1"
 
 # ── Finalize ────────────────────────────────────────────────────────────────────────────────
 sketchybar --update
