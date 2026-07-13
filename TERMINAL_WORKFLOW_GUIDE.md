@@ -630,33 +630,32 @@ terminal accent input).
   installed via Brewfile) which rings the focused window — blue `#7aa2f7` focused,
   grey `#565f89` unfocused.
 - **Auto-placement (`on-window-detected`):** utility/settings windows (System
-  Settings, Activity Monitor, Calculator, Finder, 1Password) are forced `floating`;
-  daily drivers get stable homes — **Ghostty → workspace 1, Safari → workspace 2**.
+  Settings, Activity Monitor, Calculator, Finder, 1Password) are forced `floating`.
 - **Persistent workspaces 1–5** so the SketchyBar spaces row always renders.
 - **Multi-monitor:** `on-focused-monitor-changed` lazily warps the mouse to the new
-  monitor's center; `alt-shift-tab` throws the workspace to the next monitor.
+  monitor's center.
+- **Shared cross-OS keymap:** this map is kept keystroke-for-keystroke identical to the
+  Windows host's GlazeWM (`dotfiles-Windows/desktop/glazewm/config.yaml`), so the tiling
+  workflow is one muscle-memory across macOS and Windows. Only bindings both WMs express
+  identically are kept — hence no accordion, service mode, screenshot, per-app workspace
+  pinning, or monitor-workspace-move here.
 
 | Mode | Binding | Action |
 |------|---------|--------|
 | main | `alt-h/j/k/l` | focus left/down/up/right |
 | main | `alt-shift-h/j/k/l` | move window |
-| main | `alt--` / `alt-=` | nudge-resize smart ∓50 |
-| main | `alt-/` | toggle tiles horizontal↔vertical |
-| main | `alt-,` | toggle accordion layout |
+| main | `alt-u` / `alt-p` | nudge-resize width −/+ 50 |
+| main | `alt-o` / `alt-i` | nudge-resize height +/− 50 |
+| main | `alt-v` | toggle tiles horizontal↔vertical |
 | main | `alt-f` | fullscreen |
+| main | `alt-shift-space` | toggle floating for the focused window |
+| main | `alt-shift-q` | close the focused window |
 | main | `alt-1..5` | focus workspace N |
 | main | `alt-shift-1..5` | move window to workspace N and follow |
-| main | `alt-shift-.` / `alt-shift-,` | cycle workspace next/prev (wrap) |
-| main | `alt-tab` | back-and-forth to previous workspace |
+| main | `alt-a` / `alt-s` / `alt-d` | workspace prev / next / recent |
 | main | `alt-enter` | new Ghostty window (`open -na Ghostty`) |
-| main | `alt-shift-s` | screenshot region → clipboard |
-| main | `alt-r` | enter **resize mode** (h/j/k/l size, esc/enter exit) |
-| main | `alt-shift-;` | enter **service mode** |
-| service | `esc` | reload-config + exit |
-| service | `r` | flatten workspace tree (reset layout) |
-| service | `f` | toggle float/tile for focused window |
-| service | `backspace` | close all windows but current |
-| service | `alt-shift-h/j/k/l` | join focused window with neighbor (build splits) |
+| main | `alt-r` | enter **resize mode** (`h/l` width, `k/j` height; esc/enter exit) |
+| main | `alt-shift-r` | reload config |
 
 ### 6.2 Karabiner — Caps→Ctrl/Esc + the Tab "hyper" layer (`karabiner/karabiner.json`)
 
