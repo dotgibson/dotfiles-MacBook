@@ -104,6 +104,7 @@ brew "fzf"
 brew "gum"
 brew "glow"          # markdown rendering
 brew "navi"          # interactive fzf-driven cheatsheets (os/macos.zsh aliases cheat → navi)
+brew "fastfetch"     # system/host info banner (os/macos.zsh aliases ff → fastfetch; config: fastfetch/) — complements onefetch (git-repo summary)
 # NOTE: tealdeer / mas / trash are declared once above (Modern CLI / Mac App Store /
 # File management). Duplicate declarations were removed — brew bundle is happy with one.
 #

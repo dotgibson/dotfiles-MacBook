@@ -194,7 +194,7 @@ err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
 # section headers. WIRE_TOTAL is the count of step() sections in wire_links; bump it if
 # you add/remove one (a wrong total is cosmetic — it never affects what gets linked).
 WIRE_STEP=0
-WIRE_TOTAL=7
+WIRE_TOTAL=8
 step() {
   WIRE_STEP=$((WIRE_STEP + 1))
   ((QUIET)) || printf '%s==>%s %s[%d/%d]%s %s\n' "$c_b" "$c_0" "$c_y" "$WIRE_STEP" "$WIRE_TOTAL" "$c_0" "$*"
@@ -533,6 +533,9 @@ wire_links() {
   step "ghostty"
   link "$REPO/ghostty/config" "$CFG/ghostty/config"
 
+  step "fastfetch (system banner)"
+  link "$REPO/fastfetch/config.jsonc" "$CFG/fastfetch/config.jsonc"
+
   # ── macOS desktop layer: tiling WM + menu bar + keyboard remap (GUI apps) ──
   # All read their config from ~/.config; the apps themselves come from the Brewfile.
   step "aerospace (tiling WM)"
@@ -613,7 +616,7 @@ uninstall() {
     "$CFG/tmux/tmux.conf" "$CFG/tmux/tmux.reset.conf" "$CFG/tmux/scripts" "$CFG/tmux/os.conf"
     "$CFG/nvim" "$HOME/.vimrc"
     "$HOME/.gitconfig" "$CFG/git/os.gitconfig" "$CFG/git/ignore"
-    "$CFG/mise/config.toml" "$CFG/ghostty/config" "$HOME/.ssh/config"
+    "$CFG/mise/config.toml" "$CFG/ghostty/config" "$CFG/fastfetch/config.jsonc" "$HOME/.ssh/config"
     "$CFG/aerospace/aerospace.toml" "$CFG/sketchybar" "$CFG/karabiner/karabiner.json"
   )
   local f
