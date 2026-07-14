@@ -115,6 +115,13 @@ brew "FelixKratz/formulae/sketchybar"     # programmable menu bar (config: sketc
 brew "FelixKratz/formulae/borders"        # JankyBorders — focused-window ring (aerospace after-startup-command)
 cask "karabiner-elements"                 # keyboard remap: Caps→Ctrl/Esc + Tab-hyper layers (config: karabiner/)
 
+# ── Launcher ────────────────────────────────────────────────────────────────────
+# App launching is primarily keyboard-first (Karabiner Tab-hyper t/b, AeroSpace
+# alt-enter); Raycast is the GUI complement — its pull is clipboard history,
+# snippets, and the emoji picker, which the keyboard layers don't cover. Settings
+# are GUI/cloud-synced, so there's no dotfile to commit — this just installs the app.
+cask "raycast"
+
 # ── 1Password ─────────────────────────────────────────────────────────────────
 cask "1password"
 cask "1password-cli"
