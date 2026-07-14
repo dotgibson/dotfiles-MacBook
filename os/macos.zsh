@@ -64,6 +64,10 @@ command -v navi >/dev/null 2>&1 && alias cheats='navi'
 # croc / onefetch are invoked directly (no alias): `croc send <file>` to ship a
 # file e2e-encrypted to another box; `onefetch` in a repo for an at-a-glance summary.
 
+# fastfetch: system/host banner (config: fastfetch/config.jsonc, themed to match
+# the rice). Short `ff` verb — the host-info twin of `onefetch`'s repo summary.
+command -v fastfetch >/dev/null 2>&1 && alias ff='fastfetch'
+
 # mas: Mac App Store CLI convenience helpers
 command -v mas >/dev/null 2>&1 && {
   alias masup='mas upgrade'                            # upgrade all App Store apps
