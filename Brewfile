@@ -36,6 +36,7 @@ brew "zoxide"
 brew "atuin"
 brew "direnv"
 brew "carapace"      # multi-shell completion engine (feeds fzf-tab in zsh; tools.zsh inits it)
+brew "asciinema"     # record + replay terminal sessions (`asciinema rec`) — for terminal demos of the setup; own command
 
 # ── Runtime / tooling managers ─────────────────────────────────────────────────
 brew "mise"                  # node/python/ruby/go/rust/java/lua — one manager
@@ -59,6 +60,7 @@ brew "jq"            # JSON
 brew "yq"            # YAML
 brew "gron"          # greppable JSON (zsh helper expects it)
 brew "xan"           # fast CSV slicing (maintained successor to the archived xsv)
+brew "visidata"      # interactive TUI for CSV/JSON/sqlite/parquet — the exploration complement to xan's slicing (`vd <file>`; own command)
 brew "gnu-sed"       # GNU sed (`gsed`) — nvim-spectre + scripts expect it
 brew "tealdeer"      # tldr   (fast Rust tldr client; zsh alias help → tldr)
 
@@ -103,6 +105,7 @@ brew "stylua"        # Lua formatter (core/nvim)
 brew "fzf"
 brew "gum"
 brew "glow"          # markdown rendering
+brew "lnav"          # log-file navigator — auto-detects formats, SQL queries + live tail over logs (`lnav <file>`; own command)
 brew "navi"          # interactive fzf-driven cheatsheets (os/macos.zsh aliases cheats → navi; `cheat` stays Core's core-help)
 brew "fastfetch"     # system/host info banner (os/macos.zsh aliases ff → fastfetch; config: fastfetch/) — complements onefetch (git-repo summary)
 # NOTE: tealdeer / mas / trash are declared once above (Modern CLI / Mac App Store /
