@@ -42,7 +42,7 @@ automatically-unhide-macos-hidden-apps = true
 #                   twin is its native window_effects border (same #7aa2f7 / #565f89 palette).
 after-startup-command = [
   'exec-and-forget sketchybar',
-  'exec-and-forget borders active_color=0xff7aa2f7 inactive_color=0xff565f89 width=4.0',
+  'exec-and-forget borders active_color=0xffbb9af7 inactive_color=0xff414868 width=5.0 order=above',
 ]
 
 # Notify sketchybar on workspace change so the spaces widget repaints (see sketchybar/plugins).
