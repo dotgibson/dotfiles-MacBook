@@ -216,10 +216,15 @@ Auto-bootstrapped: TPM is cloned on first run and `install_plugins` fires.
 
 - **Auto-start tmux on shell launch** (`os/macos.zsh`): an interactive login shell
   that is **not** already in tmux, **not** VS Code's integrated terminal, on a TTY,
-  and without `DOTFILES_NO_AUTOTMUX` set will `exec tmux new-session -A -s main`.
+  and without `DOTFILES_NO_AUTOTMUX` set will
+  `exec tmux new-session -A -s "${DOTFILES_TMUX_SESSION:-main}"`.
   `exec` *replaces* the login shell, so detaching exits the terminal cleanly (no
-  orphaned tmux-less shell). `new-session -A` attaches to `main` or creates it. Opt
-  out per-box with `export DOTFILES_NO_AUTOTMUX=1` in `~/.config/zsh/local.zsh`.
+  orphaned tmux-less shell). `new-session -A` attaches to the target session or
+  creates it. The session **name** defaults to `main`; override it per-box with
+  `export DOTFILES_TMUX_SESSION=<name>` in `~/.config/zsh/local.zsh` — handy when
+  `@continuum-restore` brings back a session under a different name, so matching the
+  name here lets `-A` attach to that restored session instead of spawning a second
+  `main`. Opt out of auto-start entirely with `export DOTFILES_NO_AUTOTMUX=1`.
 - **Auto-restore sessions** (`tmux.conf`): `@continuum-restore 'on'` +
   `@continuum-save-interval '15'` (minutes). `@resurrect-capture-pane-contents 'on'`
   restores scrollback; `@resurrect-strategy-nvim 'session'` restores nvim sessions.
@@ -228,7 +233,8 @@ Auto-bootstrapped: TPM is cloned on first run and `install_plugins` fires.
 
 **A. Create, name, detach a persistent session**
 
-1. Just open a terminal — you're auto-`exec`'d into session **`main`** (§2.5).
+1. Just open a terminal — you're auto-`exec`'d into session **`main`** (the default;
+   configurable via `DOTFILES_TMUX_SESSION` — §2.5).
 2. New named session from inside tmux: `prefix S` (choose-session) or, faster, the
    **session picker** `prefix f` (sesh popup — see §3.4) which *creates-or-switches*
    by project/git-repo name.
