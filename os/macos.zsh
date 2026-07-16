@@ -93,7 +93,7 @@ command -v op >/dev/null 2>&1 && alias opsignin='eval "$(op signin)"'
 #
 # Session NAME is a knob: DOTFILES_TMUX_SESSION (default `main`). Set it in
 # ~/.config/zsh/local.zsh to pin the session this attaches to — e.g. when
-# tmux-continuum (@continuum-restore in core/tmux.conf) restores a session under a
+# tmux-continuum (@continuum-restore in core/tmux/tmux.conf) restores a session under a
 # different name, matching the name here lets `-A` attach to that restored session
 # instead of spawning a second `main` alongside it.
 if command -v tmux >/dev/null 2>&1 \
