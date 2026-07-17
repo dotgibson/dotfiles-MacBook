@@ -42,7 +42,7 @@ automatically-unhide-macos-hidden-apps = true
 #                   twin is its native window_effects border (same #7aa2f7 / #565f89 palette).
 after-startup-command = [
   'exec-and-forget sketchybar',
-  'exec-and-forget borders active_color=0xffbb9af7 inactive_color=0xff414868 width=5.0 order=above',
+  'exec-and-forget borders active_color=0xff7aa2f7 inactive_color=0xff565f89 width=5.0 order=above',
 ]
 
 # Notify sketchybar on workspace change so the spaces widget repaints (see sketchybar/plugins).
@@ -89,10 +89,10 @@ inner.horizontal = 4
 inner.vertical = 4
 outer.bottom = 4
 # Top gap reserves the strip SketchyBar floats in. It must clear the bar's footprint
-# (sketchybarrc: bar height=20 at y_offset=0, so ~20px) on EVERY display, because the macOS
-# menu bar is set to auto-hide ("Always"), so the system reserves no top strip of its own —
-# 21 leaves a ~1px breather below the bar. (The GlazeWM twin reserves its own top gap for Zebar;
-# the pixel value differs because the bars differ.)
+# (sketchybarrc: bar height=20 at y_offset=0) on EVERY display, because the macOS menu bar is
+# set to auto-hide ("Always"), so the system reserves no top strip of its own. 48px clears the
+# bar with generous breathing room above the tiles. (The GlazeWM twin reserves its own top gap
+# for Zebar; the pixel value differs because the bars differ.)
 outer.top = 48
 outer.right = 4
 outer.left = 4

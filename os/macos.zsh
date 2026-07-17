@@ -80,23 +80,8 @@ alias dotsync='cd "$HOME/dotfiles-MacBook"'
 # ── 1Password CLI sign-in convenience (op.zsh in Core has the helpers) ───────
 command -v op >/dev/null 2>&1 && alias opsignin='eval "$(op signin)"'
 
-# ── auto-start/attach tmux for interactive terminals ─────────────────────────
-# Skip inside an existing tmux, VS Code's integrated terminal, non-TTYs, and when
-# DOTFILES_NO_AUTOTMUX is set (export it in ~/.config/zsh/local.zsh to opt out on a
-# given box). `exec` REPLACES this login shell with tmux, so detaching exits the
-# terminal cleanly instead of dropping you back into a bare, tmux-less login shell
-# (the old non-exec form left a confusing second shell behind). `new-session -A`
-# attaches to the target session if it exists, else creates it — one exec-safe
-# command, so the old `attach || new-session` fallback (which `exec` would have
-# broken, since exec replaces the shell before the `||` could run) is no longer
-# needed.
-#
-# Session NAME is a knob: DOTFILES_TMUX_SESSION (default `main`). Set it in
-# ~/.config/zsh/local.zsh to pin the session this attaches to — e.g. when
-# tmux-continuum (@continuum-restore in core/tmux/tmux.conf) restores a session under a
-# different name, matching the name here lets `-A` attach to that restored session
-# instead of spawning a second `main` alongside it.
-if command -v tmux >/dev/null 2>&1 \
-  && [[ -z "$TMUX" && -t 1 && "$TERM_PROGRAM" != "vscode" && -z "${DOTFILES_NO_AUTOTMUX:-}" ]]; then
-  exec tmux new-session -A -s "${DOTFILES_TMUX_SESSION:-main}"
-fi
+# ── auto-start tmux: moved to the TAIL of zsh/zshrc ──────────────────────────
+# It must run AFTER local.zsh (the last module) so DOTFILES_NO_AUTOTMUX /
+# DOTFILES_TMUX_SESSION set there are honored. The `os` module loads BEFORE
+# `local`, so reading those knobs here silently ignored a user's local.zsh. See
+# the auto-tmux block at the end of zsh/zshrc.

@@ -4,9 +4,11 @@
 # shellcheck source=/dev/null
 source "$HOME/.config/sketchybar/colors.sh"
 
-# `top -l 1` prints e.g. "CPU usage: 7.4% user, 12.1% sys, 80.5% idle"; load = 100 - idle.
-# Compute it entirely in awk (no bc dependency); strip % then read the value before "idle".
-LOAD="$(top -l 1 -n 0 2>/dev/null | awk '/CPU usage/ {gsub(/%/,""); for (i=1;i<=NF;i++) if ($i=="idle") printf "%d", 100-$(i-1)}')"
+# `top -l 1`'s CPU line reports the average since boot (misleadingly flat), so take TWO
+# samples and read the SECOND — the real load over the ~1s inter-sample window. The line is
+# "CPU usage: 7.4% user, 12.1% sys, 80.5% idle"; load = 100 - idle. All in awk (no bc): keep
+# the last match's value and print it in END. (Cost: `top -l 2` blocks ~1s per refresh.)
+LOAD="$(top -l 2 -n 0 2>/dev/null | awk '/CPU usage/ {gsub(/%/,""); for (i=1;i<=NF;i++) if ($i=="idle") load=100-$(i-1)} END {if (load!="") printf "%d", load}')"
 if [ -z "$LOAD" ]; then
   sketchybar --set "$NAME" drawing=off
   exit 0

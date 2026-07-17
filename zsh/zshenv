@@ -16,10 +16,10 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
 
 # Keep PATH/FPATH free of duplicate entries automatically. `-U` ties the `path`
-# array to dedup, so every later prepend (here, .zprofile's Homebrew/juliaup,
-# tools.zsh's .local/bin) collapses repeats on its own — the manual
-# `[[ ":$PATH:" != *...* ]]` guards become belt-and-suspenders rather than load-
-# bearing. Set in .zshenv so it's in force before anything touches PATH.
+# array to dedup, so every later prepend (here, .zprofile's Homebrew/juliaup, the
+# .local/bin line below) collapses repeats on its own — no manual
+# `[[ ":$PATH:" != *...* ]]` membership guards needed. Set in .zshenv so it's in
+# force before anything touches PATH.
 typeset -U path fpath
 
 # editor / pager
@@ -28,6 +28,7 @@ export EDITOR=nvim VISUAL=nvim
 # general note-taking (the `notes` alias in Core uses this)
 export NOTES_DIR="${NOTES_DIR:-$HOME/Notes}"
 
-# user-local bin (clip, mise shims) on PATH for all shells
-[[ ":$PATH:" != *":$HOME/.local/bin:"* ]] && export PATH="$HOME/.local/bin:$PATH"
+# user-local bin (clip, mise shims) on PATH for all shells. `typeset -U path` (above)
+# collapses duplicates, so a plain prepend to the `path` array can't stack up.
+path=("$HOME/.local/bin" $path)
 
