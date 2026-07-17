@@ -547,7 +547,9 @@ wire_links() {
 
   step "sketchybar (menu bar)"
   link "$REPO/sketchybar" "$CFG/sketchybar" # sketchybarrc + colors.sh + plugins/
-  run chmod +x "$REPO"/sketchybar/sketchybarrc "$REPO"/sketchybar/plugins/*.sh
+  # `|| true` + 2>/dev/null so a non-expanding glob (plugins removed) can't abort the run
+  # under `set -e` after links are already wired — matches the scaffold's guarded chmods.
+  run chmod +x "$REPO"/sketchybar/sketchybarrc "$REPO"/sketchybar/plugins/*.sh 2>/dev/null || true
 
   step "karabiner (keyboard)"
   link "$REPO/karabiner/karabiner.json" "$CFG/karabiner/karabiner.json"
@@ -620,7 +622,7 @@ uninstall() {
     "$CFG/tmux/tmux.conf" "$CFG/tmux/tmux.reset.conf" "$CFG/tmux/scripts" "$CFG/tmux/os.conf"
     "$CFG/nvim" "$HOME/.vimrc"
     "$HOME/.gitconfig" "$CFG/git/os.gitconfig" "$CFG/git/ignore"
-    "$CFG/mise/config.toml" "$CFG/ghostty/config" "$CFG/fastfetch/config.jsonc" "$HOME/.ssh/config"
+    "$CFG/mise/config.toml" "$CFG/jj/config.toml" "$CFG/ghostty/config" "$CFG/fastfetch/config.jsonc" "$HOME/.ssh/config"
     "$CFG/aerospace/aerospace.toml" "$CFG/sketchybar" "$CFG/karabiner/karabiner.json"
   )
   local f

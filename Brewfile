@@ -51,7 +51,6 @@ brew "fd"            # find
 brew "git-delta"     # git diff  (canonical formula; `delta` is only an alias of it)
 brew "dust"          # du
 brew "duf"           # df   (core-doctor probes this; disk usage/free)
-brew "bottom"        # top  (binary: btm — kept; no alias points here)
 brew "btop"          # top  (core aliases top/htop → btop expect this binary)
 brew "procs"         # ps
 brew "viddy"         # watch (core aliases watch → viddy; tools.zsh probes HAVE_VIDDY)

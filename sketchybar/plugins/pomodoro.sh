@@ -64,8 +64,8 @@ esac
 
 printf '%s %s %s %s\n' "$MODE" "$RUNNING" "$REMAINING" "$LAST" >"$STATE"
 
-MM=$(printf '%02d' $((REMAINING / 60)))
-SS=$(printf '%02d' $((REMAINING % 60)))
+# One printf fork per tick (not two): this is the busiest plugin (update_freq=1).
+TIME=$(printf '%02d:%02d' $((REMAINING / 60)) $((REMAINING % 60)))
 if [ "$RUNNING" -eq 0 ]; then
   COLOR="$GREY"
 elif [ "$MODE" = "work" ]; then
@@ -74,4 +74,4 @@ else
   COLOR="$ACCENT"
 fi
 
-sketchybar --set "$NAME" icon="󰔛" icon.color="$COLOR" label="${MM}:${SS}" label.color="$COLOR"
+sketchybar --set "$NAME" icon="󰔛" icon.color="$COLOR" label="$TIME" label.color="$COLOR"
