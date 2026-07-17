@@ -211,7 +211,9 @@ if command -v zsh >/dev/null 2>&1; then
   # matches $modules — exercising the real skip path too.
   ln -s "$REPO/core/zsh/loader.zsh" "$zcfg/loader.zsh"
   order_log="$zhome/order.log"
-  zerr="$(ZDOTDIR="$zcfg" ZSH_ORDER_LOG="$order_log" zsh -f -c "source '$REPO/zsh/zshrc'" 2>&1)"
+  # A global /etc/zshenv can force ZDOTDIR (overriding an env-passed one), so set ZDOTDIR
+  # INSIDE -c after /etc/zshenv has run — the hermetic pattern core/scripts/test-core.sh uses.
+  zerr="$(ZSH_ORDER_LOG="$order_log" zsh -f -c "ZDOTDIR='$zcfg'; source '$REPO/zsh/zshrc'" 2>&1)"
   zrc=$?
   assert_eq "loader sources cleanly (exit 0)" 0 "$zrc"
   assert_eq "loader produced no errors" "" "$zerr"

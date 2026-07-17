@@ -30,8 +30,8 @@
   done
 }
 
-# juliaup-managed Julia (if installed)
-[[ -d "$HOME/.juliaup/bin" && ":$PATH:" != *":$HOME/.juliaup/bin:"* ]] && export PATH="$HOME/.juliaup/bin:$PATH"
+# juliaup-managed Julia (if installed). `typeset -U path` (.zshenv) dedups the prepend.
+[[ -d "$HOME/.juliaup/bin" ]] && path=("$HOME/.juliaup/bin" $path)
 
 # mise: trust THIS machine's dotfiles dir for project mise configs. This lives in the OS
 # layer on purpose — the trusted path is machine-specific (the Core config.toml ships a

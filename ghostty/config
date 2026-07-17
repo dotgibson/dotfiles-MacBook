@@ -1,8 +1,7 @@
 # Theme
-theme = TokyoNight
+theme = TokyoNight Storm
 background-opacity = 0.75
-background-blur = true
-# frosted glass behind the 0.90 opacity (macOS)
+background-blur = true # frosted glass behind the 0.75 translucency (macOS)
 macos-window-buttons = hidden
 macos-titlebar-style = hidden
 

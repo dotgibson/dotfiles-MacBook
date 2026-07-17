@@ -194,7 +194,11 @@ err() { printf '  %s%s%s %s\n' "$c_r" "$G_ERR" "$c_0" "$*" >&2; }
 # section headers. WIRE_TOTAL is the count of step() sections in wire_links; bump it if
 # you add/remove one (a wrong total is cosmetic — it never affects what gets linked).
 WIRE_STEP=0
+# Count of step() sections in wire_links. The zsh-entry step is conditional (blib_want zsh),
+# so drop it from the total when zsh isn't selected — keeps the [k/N] counter honest under
+# --only/--skip. (Selection is already applied above via blib_select.)
 WIRE_TOTAL=8
+blib_want zsh || WIRE_TOTAL=7
 step() {
   WIRE_STEP=$((WIRE_STEP + 1))
   ((QUIET)) || printf '%s==>%s %s[%d/%d]%s %s\n' "$c_b" "$c_0" "$c_y" "$WIRE_STEP" "$WIRE_TOTAL" "$c_0" "$*"
