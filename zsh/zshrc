@@ -70,9 +70,10 @@ unset _CORE_MODULES
 # Placed here — not in the `os` module — because the loader above already sourced
 # every module INCLUDING local.zsh, so DOTFILES_NO_AUTOTMUX / DOTFILES_TMUX_SESSION
 # set there are now honored (the `os` module loads before `local` and couldn't read
-# them). `exec` replaces this login shell so detaching exits the terminal cleanly;
+# them). `exec` replaces the current shell so detaching exits the terminal cleanly;
 # `new-session -A` attaches if the session exists, else creates it. Skips inside an
-# existing tmux, VS Code's integrated terminal, and non-TTYs.
+# existing tmux, VS Code's integrated terminal, and non-TTYs (macOS terminals start
+# login+interactive shells, so in practice this runs once per terminal window).
 if command -v tmux >/dev/null 2>&1 \
   && [[ -z "$TMUX" && -t 1 && "$TERM_PROGRAM" != "vscode" && -z "${DOTFILES_NO_AUTOTMUX:-}" ]]; then
   exec tmux new-session -A -s "${DOTFILES_TMUX_SESSION:-main}"
