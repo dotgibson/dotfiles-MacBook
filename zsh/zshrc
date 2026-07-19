@@ -84,10 +84,10 @@ unset _CORE_MODULES
 #
 # The fix: boot the server FIRST (without committing to a session), let continuum's
 # restore land, THEN reconcile into a single session with the name you want:
-#   • wanted session already present (running or restored)  → attach to it
-#   • only a differently-named session present (stale save) → rename it to the wanted
-#     name and attach — one session, right name, restored windows/panes preserved
-#   • nothing running and nothing to restore                → create it fresh
+#   • exactly one differently-named session present (stale save) → rename it to the
+#     wanted name, preserving its restored windows/panes
+#   • then a single race-safe `new-session -A` attaches to the wanted session (running,
+#     restored, or just renamed) or creates it if there's nothing to attach to
 if command -v tmux >/dev/null 2>&1 \
   && [[ -z "$TMUX" && -t 1 && "$TERM_PROGRAM" != "vscode" && -z "${DOTFILES_NO_AUTOTMUX:-}" ]]; then
   _autotmux_want="${DOTFILES_TMUX_SESSION:-main}"
@@ -109,13 +109,22 @@ if command -v tmux >/dev/null 2>&1 \
     fi
   fi
 
-  if tmux has-session -t "=$_autotmux_want" 2>/dev/null; then
-    exec tmux attach-session -t "=$_autotmux_want"
-  elif _autotmux_have="$(tmux ls -F '#{session_name}' 2>/dev/null | head -1)"; \
-       [[ -n "$_autotmux_have" ]]; then
-    tmux rename-session -t "$_autotmux_have" "$_autotmux_want"
-    exec tmux attach-session -t "=$_autotmux_want"
-  else
-    exec tmux new-session -s "$_autotmux_want"
+  # If continuum restored EXACTLY ONE session under a different name (the stale-save
+  # case this fix targets), adopt it by renaming to the wanted name — so you land in
+  # one session with the right name and its restored windows/panes. Skip the rename
+  # when several sessions exist (don't hijack an arbitrary one) or when the sole
+  # session is already the wanted one; a failed rename (e.g. a concurrent shell just
+  # created the wanted name) is non-fatal — the create/attach below still resolves it.
+  _autotmux_have=("${(@f)$(tmux ls -F '#{session_name}' 2>/dev/null)}")
+  if (( ${#_autotmux_have} == 1 )) \
+     && [[ -n "$_autotmux_have[1]" && "$_autotmux_have[1]" != "$_autotmux_want" ]]; then
+    tmux rename-session -t "$_autotmux_have[1]" "$_autotmux_want" 2>/dev/null
   fi
+  unset _autotmux_have
+
+  # Race-safe finish: `new-session -A` ATTACHES to the wanted session if it exists now
+  # (running, restored, or just renamed), else CREATES it. Deliberately not a bare
+  # `attach-session` — since `exec` has already replaced this shell, attaching to a
+  # session that vanished mid-race would kill the terminal; `-A` cannot.
+  exec tmux new-session -A -s "$_autotmux_want"
 fi
