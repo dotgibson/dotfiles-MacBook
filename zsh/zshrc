@@ -70,11 +70,61 @@ unset _CORE_MODULES
 # Placed here — not in the `os` module — because the loader above already sourced
 # every module INCLUDING local.zsh, so DOTFILES_NO_AUTOTMUX / DOTFILES_TMUX_SESSION
 # set there are now honored (the `os` module loads before `local` and couldn't read
-# them). `exec` replaces the current shell so detaching exits the terminal cleanly;
-# `new-session -A` attaches if the session exists, else creates it. Skips inside an
-# existing tmux, VS Code's integrated terminal, and non-TTYs (macOS terminals start
-# login+interactive shells, so in practice this runs once per terminal window).
+# them). `exec` replaces the current shell so detaching exits the terminal cleanly.
+# Skips inside an existing tmux, VS Code's integrated terminal, and non-TTYs (macOS
+# terminals start login+interactive shells, so in practice this runs once per window).
+#
+# WHY THIS IS NOT just `new-session -A -s <name>`: core/tmux.conf enables
+# tmux-continuum (`@continuum-restore 'on'`), which restores the last-saved
+# environment when the tmux SERVER boots. If our command is the thing that boots the
+# server, our session gets created ALONGSIDE whatever continuum restores under its own
+# saved name — so you land in two sessions (e.g. a restored `main` next to the one we
+# spawn). Renaming the target via DOTFILES_TMUX_SESSION can't fix that: the restored
+# session keeps its OLD saved name, so `-A` still can't merge the two.
+#
+# The fix: boot the server FIRST (without committing to a session), let continuum's
+# restore land, THEN reconcile into a single session with the name you want:
+#   • exactly one differently-named session present (stale save) → rename it to the
+#     wanted name, preserving its restored windows/panes
+#   • then a single race-safe `new-session -A` attaches to the wanted session (running,
+#     restored, or just renamed) or creates it if there's nothing to attach to
 if command -v tmux >/dev/null 2>&1 \
   && [[ -z "$TMUX" && -t 1 && "$TERM_PROGRAM" != "vscode" && -z "${DOTFILES_NO_AUTOTMUX:-}" ]]; then
-  exec tmux new-session -A -s "${DOTFILES_TMUX_SESSION:-main}"
+  _autotmux_want="${DOTFILES_TMUX_SESSION:-main}"
+
+  if ! tmux ls >/dev/null 2>&1; then
+    # No server yet: start one so continuum restores before we decide what to join.
+    tmux start-server
+    # continuum's restore runs asynchronously on server start. Wait for it — but only
+    # when a saved environment actually exists (so fresh machines pay no delay), and
+    # cap the wait so a corrupt/empty save can never hang shell startup.
+    if [[ -f "${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect/last" \
+       || -f "$HOME/.tmux/resurrect/last" ]]; then
+      _autotmux_i=0
+      while (( _autotmux_i < 30 )) && ! tmux ls >/dev/null 2>&1; do
+        sleep 0.1
+        (( _autotmux_i += 1 ))
+      done
+      unset _autotmux_i
+    fi
+  fi
+
+  # If continuum restored EXACTLY ONE session under a different name (the stale-save
+  # case this fix targets), adopt it by renaming to the wanted name — so you land in
+  # one session with the right name and its restored windows/panes. Skip the rename
+  # when several sessions exist (don't hijack an arbitrary one) or when the sole
+  # session is already the wanted one; a failed rename (e.g. a concurrent shell just
+  # created the wanted name) is non-fatal — the create/attach below still resolves it.
+  _autotmux_have=("${(@f)$(tmux ls -F '#{session_name}' 2>/dev/null)}")
+  if (( ${#_autotmux_have} == 1 )) \
+     && [[ -n "$_autotmux_have[1]" && "$_autotmux_have[1]" != "$_autotmux_want" ]]; then
+    tmux rename-session -t "$_autotmux_have[1]" "$_autotmux_want" 2>/dev/null
+  fi
+  unset _autotmux_have
+
+  # Race-safe finish: `new-session -A` ATTACHES to the wanted session if it exists now
+  # (running, restored, or just renamed), else CREATES it. Deliberately not a bare
+  # `attach-session` — since `exec` has already replaced this shell, attaching to a
+  # session that vanished mid-race would kill the terminal; `-A` cannot.
+  exec tmux new-session -A -s "$_autotmux_want"
 fi
