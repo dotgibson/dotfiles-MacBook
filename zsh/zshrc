@@ -16,7 +16,7 @@
 # NOTE on history location (v4): 15-history.zsh sets HISTFILE under $XDG_STATE_HOME/zsh/history
 # — history is mutable STATE, not config, so it no longer lives in the symlinked $ZDOTDIR tree.
 # atuin holds your real searchable history regardless; override HISTFILE in
-# ~/.config/zsh/local.zsh (99-local.zsh, sourced last, so it wins) for a different path.
+# ~/.config/zsh/99-local.zsh (the loader sources it last, so it wins) for a different path.
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── XDG fallbacks ─────────────────────────────────────────────────────────────

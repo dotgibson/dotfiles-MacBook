@@ -169,7 +169,7 @@ ln -s "$REPO/zsh/zshrc" "$ucfg/.zshrc"                           # ours (points 
 printf 'ORIGINAL\n' >"$ucfg/.zshrc.pre-dotfiles.20250101-120000" # a prior backup
 # v4: uninstall visits the NUMBERED fragment dests (core/zsh/NN-name.zsh → $CFG/zsh/NN-name.zsh),
 # so plant the foreign link at a numbered slot it actually inspects (20-aliases.zsh).
-ln -s /etc/hostname "$ucfg/20-aliases.zsh"                       # foreign (not into the repo)
+ln -s /etc/hostname "$ucfg/20-aliases.zsh" # foreign (not into the repo)
 OUT="$(HOME="$uhome" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall 2>&1)"
 assert_eq "uninstall exits 0" 0 "$?"
 if [[ -L "$ucfg/.zshrc" ]]; then no "uninstall removed our symlink" "still a link"; else ok "uninstall removed our symlink"; fi
