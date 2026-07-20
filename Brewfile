@@ -13,7 +13,7 @@
 # deprecated and 6.x removed `Brewfile.lock.json`, so there is no lockfile to pin
 # bottle hashes — brew installs the current bottle for each entry. Verify a machine
 # matches the spec with `make brew-check` (brew bundle check). Unlike the zsh plugins
-# (pinned SHAs in core/zsh/plugins.zsh) and the CI linters (pinned releases), brew
+# (pinned SHAs in core/zsh/45-plugins.zsh) and the CI linters (pinned releases), brew
 # packages float by Homebrew's design; pin a specific one inline (e.g. `brew "foo@1.2"`)
 # only where a version genuinely matters.
 # ════════════════════════════════════════════════════════════════════════════
@@ -35,7 +35,7 @@ brew "starship"
 brew "zoxide"
 brew "atuin"
 brew "direnv"
-brew "carapace"      # multi-shell completion engine (feeds fzf-tab in zsh; tools.zsh inits it)
+brew "carapace"      # multi-shell completion engine (feeds fzf-tab in zsh; 00-tools.zsh inits it)
 brew "asciinema"     # record + replay terminal sessions (`asciinema rec`) — for terminal demos of the setup; own command
 
 # ── Runtime / tooling managers ─────────────────────────────────────────────────
@@ -53,7 +53,7 @@ brew "dust"          # du
 brew "duf"           # df   (core-doctor probes this; disk usage/free)
 brew "btop"          # top  (core aliases top/htop → btop expect this binary)
 brew "procs"         # ps
-brew "viddy"         # watch (core aliases watch → viddy; tools.zsh probes HAVE_VIDDY)
+brew "viddy"         # watch (core aliases watch → viddy; 00-tools.zsh probes HAVE_VIDDY)
 brew "sd"            # sed
 brew "jq"            # JSON
 brew "yq"            # YAML
@@ -66,7 +66,7 @@ brew "tealdeer"      # tldr   (fast Rust tldr client; zsh alias help → tldr)
 # ── Network — HTTP & DNS ───────────────────────────────────────────────────────
 brew "xh"            # HTTP client  (zsh aliases http/https → xh)
 brew "doggo"         # DNS client   (zsh alias dns → doggo)
-brew "gping"         # ping w/ graph (core alias ping → gping; tools.zsh probes HAVE_GPING)
+brew "gping"         # ping w/ graph (core alias ping → gping; 00-tools.zsh probes HAVE_GPING)
 brew "croc"          # secure P2P file transfer — `croc send <file>` / `croc <code>` (e2e encrypted; own command)
 
 # ── File management ────────────────────────────────────────────────────────────
