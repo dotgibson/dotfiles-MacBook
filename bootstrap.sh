@@ -13,7 +13,7 @@
 # This repo vendors Core under core/ (git subtree). bootstrap symlinks the Core
 # files + the macOS os/ layer into ~/.config and ~. Your identity lives in
 # ~/.config/git/local.gitconfig (never tracked); machine-only shell tweaks in
-# ~/.config/zsh/local.zsh (never tracked).
+# ~/.config/zsh/99-local.zsh (never tracked).
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -307,7 +307,7 @@ spin() {
   # + exit 130). We trap BOTH INT and TERM: the global trap handles TERM too, but it knows
   # nothing about $pid and never restores the cursor — so a SIGTERM mid-spin (e.g. CI
   # cancellation) would otherwise orphan the child and leave the cursor hidden. Mirrors
-  # Core's ui.zsh _core_spin (SIGINT-forward + wait).
+  # Core's 05-ui.zsh _core_spin (SIGINT-forward + wait).
   trap 'kill -INT  "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' INT
   trap 'kill -TERM "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; printf "\e[?25h"; on_interrupt' TERM
   printf '\e[?25l' # hide cursor while spinning
@@ -632,7 +632,7 @@ uninstall() {
   printf '%s==>%s %s\n' "$c_b" "$c_0" "uninstall summary"
   ok "$n_removed removed · $n_restored restored"
   ((DRY)) && info "dry run — nothing was changed; re-run without --dry-run to apply"
-  info "left in place: Homebrew + packages, your login shell, and ~/.config/{zsh/local.zsh,git/local.gitconfig}"
+  info "left in place: Homebrew + packages, your login shell, and ~/.config/{zsh/99-local.zsh,git/local.gitconfig}"
 }
 
 # --uninstall short-circuits the whole install path (it's the reverse operation).

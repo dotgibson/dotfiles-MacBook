@@ -11,8 +11,8 @@
 # ── tool completions (Homebrew-installed CLIs that ship zsh completions) ─────
 # direnv/gh/uv/ty all emit DETERMINISTIC scripts: `direnv hook zsh` installs a precmd
 # whose per-directory behavior runs at RUNTIME, but the generated hook TEXT is static
-# for a given binary — exactly like mise/zoxide in tools.zsh, which Core already caches.
-# So route all four through Core's _cache_eval (from tools.zsh) — one cheap `source`
+# for a given binary — exactly like mise/zoxide in 00-tools.zsh, which Core already caches.
+# So route all four through Core's _cache_eval (from 00-tools.zsh) — one cheap `source`
 # instead of spawning each generator every shell. _cache_eval self-guards on the binary
 # being present and regenerates only when the binary is newer than the cache.
 if (( $+functions[_cache_eval] )); then
@@ -20,7 +20,7 @@ if (( $+functions[_cache_eval] )); then
   _cache_eval gh gh completion -s zsh
   _cache_eval uv uv generate-shell-completion zsh
   _cache_eval ty ty generate-shell-completion zsh
-else  # bare fallback if os.zsh is sourced without Core's tools.zsh
+else  # bare fallback if 80-os.zsh is sourced without Core's 00-tools.zsh
   command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh 2>/dev/null)"
   command -v gh >/dev/null 2>&1 && eval "$(gh completion -s zsh 2>/dev/null)"
   command -v uv >/dev/null 2>&1 && eval "$(uv generate-shell-completion zsh 2>/dev/null)"
@@ -28,12 +28,12 @@ else  # bare fallback if os.zsh is sourced without Core's tools.zsh
 fi
 
 # ── repo-owned completions (bootstrap.sh) ─────────────────────────────────────
-# Core adds its completions dir to fpath BEFORE compinit (options.zsh), so compinit
+# Core adds its completions dir to fpath BEFORE compinit (10-options.zsh), so compinit
 # auto-registers them. This macOS layer loads AFTER compinit, so add the repo's
 # completions dir to fpath and then explicitly autoload + compdef — compinit won't
 # re-scan fpath on its own. Resolve the dir relative to THIS file: %x = the sourced
 # path, :A follows the bootstrap symlink back to <repo>/os/macos.zsh, :h:h climbs to
-# the repo root, then /completions (the proven pattern from Core's options.zsh).
+# the repo root, then /completions (the proven pattern from Core's 10-options.zsh).
 _macos_compdir="${${(%):-%x}:A:h:h}/completions"
 if [[ -d "$_macos_compdir" ]] && (($+functions[compdef])); then
   fpath=("$_macos_compdir" $fpath)
@@ -58,7 +58,7 @@ command -v trash >/dev/null 2>&1 && alias rm='trash'
 # (plural) so it does NOT shadow Core's `cheat` alias → `core-help`: the first-run
 # welcome banner and `core-doctor` both point users at `core-help`, so keeping
 # `cheat` resolving there avoids a confusing collision. `cheats` launches navi.
-# (No Ctrl-G widget — that key is owned by sesh in Core's bindings.zsh.)
+# (No Ctrl-G widget — that key is owned by sesh in Core's 40-bindings.zsh.)
 command -v navi >/dev/null 2>&1 && alias cheats='navi'
 
 # croc / onefetch are invoked directly (no alias): `croc send <file>` to ship a
@@ -77,11 +77,11 @@ command -v mas >/dev/null 2>&1 && {
 # ── dotfiles maintenance: jump to this repo ──────────────────────────────────
 alias dotsync='cd "$HOME/dotfiles-MacBook"'
 
-# ── 1Password CLI sign-in convenience (op.zsh in Core has the helpers) ───────
+# ── 1Password CLI sign-in convenience (50-op.zsh in Core has the helpers) ───────
 command -v op >/dev/null 2>&1 && alias opsignin='eval "$(op signin)"'
 
 # ── auto-start tmux: moved to the TAIL of zsh/zshrc ──────────────────────────
-# It must run AFTER local.zsh (the last module) so DOTFILES_NO_AUTOTMUX /
+# It must run AFTER 99-local.zsh (the last module) so DOTFILES_NO_AUTOTMUX /
 # DOTFILES_TMUX_SESSION set there are honored. The `os` module loads BEFORE
-# `local`, so reading those knobs here silently ignored a user's local.zsh. See
+# `local`, so reading those knobs here silently ignored a user's 99-local.zsh. See
 # the auto-tmux block at the end of zsh/zshrc.

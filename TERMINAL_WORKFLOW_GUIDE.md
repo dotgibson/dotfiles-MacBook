@@ -76,19 +76,19 @@ own resolved path so a shell never starts with *zero* Core modules.
 - `update` sits late so its once/day "updates available" nudge prints just above
   the prompt — including inside each new tmux pane.
 - `os` = `os/macos.zsh` (this repo) loads after Core so it can override; `local` =
-  `~/.config/zsh/local.zsh`, the untracked per-machine escape hatch, loads dead last
+  `~/.config/zsh/99-local.zsh`, the untracked per-machine escape hatch, loads dead last
   and wins.
 
 ### 1.3 Where each class of state is set
 
 | State | Set in | Notes |
 |-------|--------|-------|
-| **PATH** | `.zshenv` (`.local/bin`), `.zprofile` (brew, juliaup), `tools.zsh` (`.local/bin` again, pre-probe) | dedup via `typeset -U path` |
-| **Env vars** | `.zshenv` (XDG, EDITOR, NOTES_DIR), `.zprofile` (`SSH_AUTH_SOCK`, `MISE_TRUSTED_CONFIG_PATHS`), `tools.zsh` (`VIRTUAL_ENV_DISABLE_PROMPT`, `ATUIN_NOBIND`), `fzf.zsh` (`FZF_*`), `aliases.zsh` (`BAT_THEME`, `MANPAGER`), `plugins.zsh` (`CARAPACE_BRIDGES`, `YSU_*`) | — |
-| **Aliases** | `aliases.zsh` (modern-stack), `git.zsh` (git verbs), `os/macos.zsh` (macOS-only) | every optional-tool alias is `HAVE_*`-guarded |
-| **Functions** | `functions.zsh` (utilities), `fzf.zsh` (zle widgets), `git.zsh` (fuzzy `gaf`/`grf`/`grsf`), `op.zsh` (1Password) | — |
-| **Plugin manager** | `plugins.zsh` — hand-rolled, **no Oh-My-Zsh / no Zinit** | clones to `$ZDOTDIR/plugins`, pinned by SHA |
-| **Completion system** | `options.zsh` (`compinit`), `plugins.zsh` (`carapace`, `fzf-tab`), `os/macos.zsh` (direnv/gh/uv/ty + `_bootstrap`) | — |
+| **PATH** | `.zshenv` (`.local/bin`), `.zprofile` (brew, juliaup), `00-tools.zsh` (`.local/bin` again, pre-probe) | dedup via `typeset -U path` |
+| **Env vars** | `.zshenv` (XDG, EDITOR, NOTES_DIR), `.zprofile` (`SSH_AUTH_SOCK`, `MISE_TRUSTED_CONFIG_PATHS`), `00-tools.zsh` (`VIRTUAL_ENV_DISABLE_PROMPT`, `ATUIN_NOBIND`), `35-fzf.zsh` (`FZF_*`), `20-aliases.zsh` (`BAT_THEME`, `MANPAGER`), `45-plugins.zsh` (`CARAPACE_BRIDGES`, `YSU_*`) | — |
+| **Aliases** | `20-aliases.zsh` (modern-stack), `25-git.zsh` (git verbs), `os/macos.zsh` (macOS-only) | every optional-tool alias is `HAVE_*`-guarded |
+| **Functions** | `30-functions.zsh` (utilities), `35-fzf.zsh` (zle widgets), `25-git.zsh` (fuzzy `gaf`/`grf`/`grsf`), `50-op.zsh` (1Password) | — |
+| **Plugin manager** | `45-plugins.zsh` — hand-rolled, **no Oh-My-Zsh / no Zinit** | clones to `$ZDOTDIR/plugins`, pinned by SHA |
+| **Completion system** | `10-options.zsh` (`compinit`), `45-plugins.zsh` (`carapace`, `fzf-tab`), `os/macos.zsh` (direnv/gh/uv/ty + `_bootstrap`) | — |
 
 ### 1.4 Startup-performance profile
 
@@ -103,22 +103,22 @@ spawns *zero* subprocesses for the shell-hook tools. Mechanisms found:
    live `eval` if the cache dir is unwritable. This matters because `exec tmux` (see
    §2.5) starts a **login shell per pane** — an un-cached `$(brew shellenv)` would
    fork brew on every pane.
-2. **`_cache_eval` for every hook tool** (`tools.zsh`): starship, zoxide, mise, atuin
+2. **`_cache_eval` for every hook tool** (`00-tools.zsh`): starship, zoxide, mise, atuin
    — plus direnv/gh/uv/ty in `os/macos.zsh` — have their `init`/`activate`/completion
    scripts generated once and `source`d thereafter. Binary lookup uses zsh's
    `$commands` hash (fork-free), not `$(command -v)`. Env-sensitive generators
    (`ATUIN_NOBIND`, `CARAPACE_BRIDGES`) fold the env into the cache **filename**
    (`--salt`) so flipping the env busts the cache instead of serving stale.
-3. **`compinit` fast path** (`options.zsh`): the `.zcompdump` security audit
+3. **`compinit` fast path** (`10-options.zsh`): the `.zcompdump` security audit
    (`compaudit`) runs **at most once per 24h**. Glob qualifier `(#qN.mh+24)` means
    "older than 24h → full `compinit`; else `compinit -C` (skip the check)". The dump
    is then `zcompile`d for a faster next start.
 4. **Module byte-compilation** (`loader.zsh`): all ~14 modules compiled to `.zwc`.
-5. **Async plugin loading** (`plugins.zsh`): `romkatv/zsh-defer` pushes the two
+5. **Async plugin loading** (`45-plugins.zsh`): `romkatv/zsh-defer` pushes the two
    heaviest plugins (autosuggestions + syntax-highlighting) plus history-substring-
    search onto a post-first-prompt FIFO queue. The shell is interactive instantly;
    they "catch up" a few ms later.
-6. **`diff --color` capability cached** (`aliases.zsh`): BSD/macOS `diff` lacks
+6. **`diff --color` capability cached** (`20-aliases.zsh`): BSD/macOS `diff` lacks
    `--color`; the verdict is probed once and cached by binary mtime rather than
    forking `diff` every shell.
 
@@ -131,17 +131,17 @@ spawns *zero* subprocesses for the shell-hook tools. Mechanisms found:
   are cached (one `source` each), but only `direnv`'s chpwd hook genuinely needs to
   exist before the first prompt. `gh`/`uv`/`ty` completions could be `zsh-defer`d.
   (See §5 recommendation #1.)
-- **`zstyle ':completion:*' rehash true`** (`options.zsh`): forces a PATH rehash on
+- **`zstyle ':completion:*' rehash true`** (`10-options.zsh`): forces a PATH rehash on
   completion attempts. Ergonomic (newly-installed binaries complete immediately) at a
   small per-completion cost — not a startup cost.
-- **`HISTSIZE=SAVEHIST=200000`** (`history.zsh`): a large in-memory history list.
+- **`HISTSIZE=SAVEHIST=200000`** (`15-history.zsh`): a large in-memory history list.
   Negligible on modern hardware; atuin holds the real searchable history regardless.
 - **Per-pane login-shell re-run.** Because `os/macos.zsh` `exec tmux`s and every new
   pane is a login shell, `.zprofile` re-runs per pane. The brew cache is precisely
   what keeps that cheap — the design is aware of this.
 
 **To measure it yourself:** `hyperfine 'zsh -i -c exit'` (the idiom the header of
-`tools.zsh` points at). For a flame-style breakdown, temporarily add
+`00-tools.zsh` points at). For a flame-style breakdown, temporarily add
 `zmodload zsh/zprof` at the top of `.zshrc` and `zprof` at the bottom.
 
 ---
@@ -221,7 +221,7 @@ Auto-bootstrapped: TPM is cloned on first run and `install_plugins` fires.
   `exec` *replaces* the login shell, so detaching exits the terminal cleanly (no
   orphaned tmux-less shell). `new-session -A` attaches to the target session or
   creates it. The session **name** defaults to `main`; override it per-box with
-  `export DOTFILES_TMUX_SESSION=<name>` in `~/.config/zsh/local.zsh` — handy when
+  `export DOTFILES_TMUX_SESSION=<name>` in `~/.config/zsh/99-local.zsh` — handy when
   `@continuum-restore` brings back a session under a different name, so matching the
   name here lets `-A` attach to that restored session instead of spawning a second
   `main`. Opt out of auto-start entirely with `export DOTFILES_NO_AUTOTMUX=1`.
@@ -292,19 +292,19 @@ launch with `TERM` unset) before `tmux attach`.
 
 ### 3.1 Interactive search — fzf + ripgrep + fd
 
-`fzf.zsh` sets a fully-themed, explicit Tokyo-Night-Storm `FZF_DEFAULT_OPTS`
+`35-fzf.zsh` sets a fully-themed, explicit Tokyo-Night-Storm `FZF_DEFAULT_OPTS`
 (60% height, reverse layout, rounded border, right 65% wrapped preview) — an
 *explicit* palette so fzf stays on-theme even when SSH'd into an unthemed box.
 
 - **File source:** `FZF_DEFAULT_COMMAND='fd --type f --hidden --strip-cwd-prefix
   --exclude .git'` (dir source uses `--type d`). fzf's `Ctrl-T`/`Alt-C` reuse it.
-- **Previews are binary-resolved, not literal.** `$BAT_BIN` (from `tools.zsh`) is
+- **Previews are binary-resolved, not literal.** `$BAT_BIN` (from `00-tools.zsh`) is
   baked into the preview string so previews work where bat is `batcat`; falls back to
   `cat`/`ls` on a bare box. Two forms are kept: `$_FZF_PREVIEW_CMD` (ends in fzf's
   `{}`) and `$_FZF_TAB_PREVIEW_CMD` (placeholder-free — fzf-tab appends `$realpath`
   itself).
 
-**Custom zle widgets** (defined in `fzf.zsh`, bound in `bindings.zsh`), each guarded
+**Custom zle widgets** (defined in `35-fzf.zsh`, bound in `40-bindings.zsh`), each guarded
 so a bare box warns in "Core's voice" rather than erroring:
 
 | Key | Widget | Does |
@@ -328,18 +328,18 @@ fzf-tab). (`procs` replaces `ps` for listing; `btop` for interactive kill.)
 
 ### 3.2 Directory traversal — zoxide
 
-- `zoxide` is initialised (cached) in `tools.zsh`; **`cd` is aliased to `z`** and
-  `cdi` to `zi` (interactive) in `aliases.zsh`.
+- `zoxide` is initialised (cached) in `00-tools.zsh`; **`cd` is aliased to `z`** and
+  `cdi` to `zi` (interactive) in `20-aliases.zsh`.
 - `Alt-Z` gives an fzf front-end over the zoxide database (`_fzf_zoxide_jump`).
 - `-` is aliased to `cd -` (previous dir); `AUTO_CD` + `AUTO_PUSHD` +
-  `PUSHD_IGNORE_DUPS` (`options.zsh`) make bare directory names cd and build a dir
+  `PUSHD_IGNORE_DUPS` (`10-options.zsh`) make bare directory names cd and build a dir
   stack. Named dirs: `~dots` → `~/.config`, `~proj` → `~/Projects`.
 - `fcd` — fuzzy-cd into any subdirectory (fd + fzf, degrades to `find`).
 - No autojump — zoxide is the sole jumper.
 
 ### 3.3 Modern visual replacements (all `HAVE_*`-guarded)
 
-`tools.zsh` probes each binary and sets a `HAVE_*` flag; `aliases.zsh` only rewires
+`00-tools.zsh` probes each binary and sets a `HAVE_*` flag; `20-aliases.zsh` only rewires
 the classic command when the flag is set, so a rescue shell silently falls back.
 
 | Classic | Modern | Alias form |
@@ -437,7 +437,7 @@ don't clobber your working pane:
 | fzf | `fbr` | fuzzy git branch checkout (local+remote) | Switch branches without typing names |
 | Core | `core-doctor` / `core-version` / `core-help` | health check / version / help index | Diagnose the Core install |
 
-### 4.3 Shell — git aliases & fuzzy helpers (`git.zsh`)
+### 4.3 Shell — git aliases & fuzzy helpers (`25-git.zsh`)
 
 | Scope/Tool | Trigger/Binding | Underlying Command/Logic | Practical Use-Case Scenario |
 |------------|-----------------|--------------------------|------------------------------|
@@ -521,7 +521,7 @@ private-key headers, `AKIA…`, `ghp_…`) across every `*.zsh`, `*.sh`, `*.conf
 **no hardcoded secrets, API tokens, or cleartext credentials.** All matches were
 comments, help text, or the names of secret-*handling* code. Specifically:
 
-- **Secrets are externalised to 1Password**, not stored. `core/zsh/op.zsh` wraps the
+- **Secrets are externalised to 1Password**, not stored. `core/zsh/50-op.zsh` wraps the
   `op` CLI: `opsecret <vault>/<item>/<field>`, `openv <.env.op> <cmd>` (injects at
   runtime via `op run`), `optoken` (TOTP → clipboard, never to history/scrollback),
   `opssh`. The module `return 0`s early if `op` isn't installed.
@@ -529,7 +529,7 @@ comments, help text, or the names of secret-*handling* code. Specifically:
   1Password agent socket **but guards on the socket existing** (`[[ -S … ]]`) so it
   self-disables and falls back to the default agent when 1Password isn't running —
   no broken `ssh-add`.
-- **History hygiene** (`history.zsh`): `HISTORY_IGNORE` blocks `pass …`,
+- **History hygiene** (`15-history.zsh`): `HISTORY_IGNORE` blocks `pass …`,
   `*--password *`, `*--token *`, `*API_KEY*`, `*SECRET*`, `op read*` from the flat
   file; `HIST_IGNORE_SPACE` lets you keep any one-off out by leading it with a space.
   atuin adds its own `history_filter`.
@@ -741,7 +741,7 @@ Beyond config, the repo ships a full lifecycle toolchain — install, daily upke
 and an umbrella command namespace. These are the capabilities the terminal sections
 referenced only in passing.
 
-### 7.1 `up` — the interactive package updater (`core/zsh/update.zsh`)
+### 7.1 `up` — the interactive package updater (`core/zsh/60-update.zsh`)
 
 A distro-agnostic front end over the box's package manager (brew/pacman/dnf/zypper/
 apt/apk/emerge — auto-detected via `_pkgup_mgr`). Fail-closed argument parsing (an
@@ -755,12 +755,12 @@ update):
 | `up -n` / `--dry-run` | list what *would* upgrade, touch nothing |
 | `up -i` / `--interactive` | fzf/gum-pick which packages (only where partial upgrades are safe — refuses on pacman/emerge/apk by design) |
 
-The modes are mutually exclusive (a contradiction is rejected). `update.zsh` also owns
+The modes are mutually exclusive (a contradiction is rejected). `60-update.zsh` also owns
 the **once/day "N updates available" nudge** that prints above the prompt (`_pkgup_notice`,
 count cached so the hot path never forks the package manager) and the first-run
 `_core_welcome` banner.
 
-### 7.2 `maint-*` — the scheduled maintenance job (`core/zsh/maint.zsh`)
+### 7.2 `maint-*` — the scheduled maintenance job (`core/zsh/55-maint.zsh`)
 
 Wires `core/maint/dotfiles-maint.sh` (brew + plugins + nvim + mise upkeep) to whatever
 scheduler the box has — **launchd LaunchAgent on macOS**, systemd `--user` timer on
@@ -777,7 +777,7 @@ Linux, crontab elsewhere — at a time you choose:
 (`up` is the per-shell nudge; `maint` is the scheduled apply — two halves of the same
 freshness story.)
 
-### 7.3 `core` — the umbrella command namespace (`core/zsh/functions.zsh`)
+### 7.3 `core` — the umbrella command namespace (`core/zsh/30-functions.zsh`)
 
 One discoverable front door over Core's first-party verbs, so a newcomer types `core`
 and finds everything instead of needing to know each verb by name:
@@ -876,7 +876,7 @@ Colocated VCS that runs on the same `.git` (shell verbs `jjs`/`jjl`/`jjd`). Conf
 
 ### 8.5 git (`core/git/gitconfig`)
 
-The base git config (aliases are in `git.zsh`); pulls in the macOS layer
+The base git config (aliases are in `25-git.zsh`); pulls in the macOS layer
 (`os/macos.gitconfig`: osxkeychain helper, gpg program, global excludesfile) and an
 untracked `~/.config/git/local.gitconfig` for identity (name/email/signingkey) —
 which is why no personal identity is committed anywhere in the repo.
@@ -893,15 +893,15 @@ What this manual now documents, end to end:
 | Tmux | `core/tmux/*`, `os/macos.conf` | §2 |
 | Modern CLI | `core/zsh/{aliases,fzf,plugins,tools}` | §3 |
 | Command matrix | aliases + functions + git + zle + tmux | §4 |
-| Security/refactor | secrets, `ssh/config`, `op.zsh`, history hygiene | §5 |
+| Security/refactor | secrets, `ssh/config`, `50-op.zsh`, history hygiene | §5 |
 | Desktop/WM | `aerospace/`, `karabiner/`, `sketchybar/`, `macos/defaults.sh` | §6 |
-| Maintenance/install | `update.zsh`, `maint.zsh`, `bootstrap.sh`, `Makefile`, `core-*` | §7 |
+| Maintenance/install | `60-update.zsh`, `55-maint.zsh`, `bootstrap.sh`, `Makefile`, `core-*` | §7 |
 | Editor/VCS | `core/{nvim,lazygit,mise,jujutsu,git,vim}` | §8 |
 
-**Reading-depth caveat (honest):** the very large modules — `functions.zsh` (~44 KB),
-`ui.zsh` (the `_core_*` presentation/helper library), `nvim/` (~90 Lua files), and the
+**Reading-depth caveat (honest):** the very large modules — `30-functions.zsh` (~44 KB),
+`05-ui.zsh` (the `_core_*` presentation/helper library), `nvim/` (~90 Lua files), and the
 full `Brewfile` — are documented at the level of *every capability and command they
-expose*, not line-by-line. `ui.zsh` in particular is the shared helper layer
+expose*, not line-by-line. `05-ui.zsh` in particular is the shared helper layer
 (`_core_err`/`_core_ok`/`_core_confirm`/`_core_spin`/`_core_help`, truecolor-aware)
 that the other modules call; it ships no user-facing commands of its own. If you need a
 per-line audit of any single module, that's a targeted follow-up.
