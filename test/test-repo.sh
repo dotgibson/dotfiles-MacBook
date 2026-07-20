@@ -240,7 +240,7 @@ fi
 # wiring — including the ${…:A:h:h}/completions path resolution — is what's under test.
 # The script is single-quoted and the temp dump path + repo root are passed as
 # positional args ($1/$2), so there is no nested bash/zsh substitution to get wrong.
-# compinit must run first (os.zsh guards on compdef); the auto-tmux exec at os.zsh's
+# compinit must run first (80-os.zsh guards on compdef); the auto-tmux exec at os.zsh's
 # tail self-skips here because stdout isn't a TTY (its `-t 1` guard is false).
 section "os/macos.zsh — sources clean & registers the bootstrap completion"
 if command -v zsh >/dev/null 2>&1; then

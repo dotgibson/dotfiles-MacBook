@@ -76,7 +76,7 @@ UPSTREAM="${CORE_UPSTREAM:-https://github.com/dotgibson/dotfiles-core}"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/verify-core.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-# Fetch EXACTLY the recorded commit (shallow, like plugins.zsh does for pinned plugins) —
+# Fetch EXACTLY the recorded commit (shallow, like 45-plugins.zsh does for pinned plugins) —
 # GitHub serves arbitrary SHAs via fetch. A local-path CORE_UPSTREAM works the same way.
 git -C "$TMP" init -q 2>/dev/null || skip "verify-core: cannot init a temp git workspace"
 git -C "$TMP" remote add origin "$UPSTREAM" 2>/dev/null
