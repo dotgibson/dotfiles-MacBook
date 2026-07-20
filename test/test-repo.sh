@@ -167,12 +167,14 @@ ucfg="$uhome/.config/zsh"
 mkdir -p "$ucfg"
 ln -s "$REPO/zsh/zshrc" "$ucfg/.zshrc"                           # ours (points into the repo)
 printf 'ORIGINAL\n' >"$ucfg/.zshrc.pre-dotfiles.20250101-120000" # a prior backup
-ln -s /etc/hostname "$ucfg/aliases.zsh"                          # foreign (not into the repo)
+# v4: uninstall visits the NUMBERED fragment dests (core/zsh/NN-name.zsh → $CFG/zsh/NN-name.zsh),
+# so plant the foreign link at a numbered slot it actually inspects (20-aliases.zsh).
+ln -s /etc/hostname "$ucfg/20-aliases.zsh"                       # foreign (not into the repo)
 OUT="$(HOME="$uhome" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall 2>&1)"
 assert_eq "uninstall exits 0" 0 "$?"
 if [[ -L "$ucfg/.zshrc" ]]; then no "uninstall removed our symlink" "still a link"; else ok "uninstall removed our symlink"; fi
 assert_eq "uninstall restored the backup over it" "ORIGINAL" "$(cat "$ucfg/.zshrc" 2>/dev/null)"
-if [[ -L "$ucfg/aliases.zsh" ]]; then ok "uninstall left a FOREIGN symlink untouched"; else no "uninstall left a foreign symlink untouched" "it was removed"; fi
+if [[ -L "$ucfg/20-aliases.zsh" ]]; then ok "uninstall left a FOREIGN symlink untouched"; else no "uninstall left a foreign symlink untouched" "it was removed"; fi
 assert_contains "uninstall flags the foreign link as not-ours" "$OUT" "not ours"
 rm -rf "$uhome"
 
@@ -190,25 +192,27 @@ assert_contains "uninstall reports it skipped the real file" "$OUT" "real file p
 rm -rf "$shome"
 
 # ── C. zsh loader (zsh/zshrc) actually executes ───────────────────────────────
-# `make zsh-syntax` only parses (zsh -n). This sources the real loop against a
-# hermetic ZDOTDIR of stub modules and asserts it runs clean AND sources in order.
+# `make zsh-syntax` only parses (zsh -n). This sources the real loader against a
+# hermetic ZDOTDIR of numbered stub fragments and asserts it runs clean AND sources
+# them in numeric order.
 section "zsh/zshrc — loader executes (not just parses)"
 if command -v zsh >/dev/null 2>&1; then
   zhome="$(mktemp -d)"
   zcfg="$zhome/zsh"
   mkdir -p "$zcfg"
-  # One stub per module the loop sources; each appends its name to an order log so we
-  # can prove the canonical order. (zshrc skips any module that's absent.)
-  modules=(tools options history aliases git functions fzf bindings plugins op maint update os local)
-  for m in "${modules[@]}"; do
+  # v4: Core modules are NUMBERED fragments (NN-name.zsh); the vendored loader globs
+  # $ZSH_CFG/[0-9][0-9]-*.zsh and sorts by the NN prefix. One stub per fragment appends its
+  # NN-name to an order log so we can prove the numeric load order. (05-ui is intentionally
+  # omitted — the glob simply never matches it, exercising the real missing-fragment path.)
+  frags=(00-tools 10-options 15-history 20-aliases 25-git 30-functions 35-fzf 40-bindings 45-plugins 50-op 55-maint 60-update 80-os 99-local)
+  for m in "${frags[@]}"; do
     # The $ZSH_ORDER_LOG ref is meant to expand inside the stub at zsh runtime, not here.
     # shellcheck disable=SC2016
     printf 'print -r -- %s >> "$ZSH_ORDER_LOG"\n' "$m" >"$zcfg/$m.zsh"
   done
-  # zshrc now sources the VENDORED loader (B12) rather than an inline loop, so the sandbox
-  # needs loader.zsh present (bootstrap symlinks it from core/zsh/ in a real install). 'ui'
-  # has no stub above, so the loader skips it (its `[[ -r ]] || continue`) and the order log
-  # matches $modules — exercising the real skip path too.
+  # zshrc sources the VENDORED loader (v4) rather than an inline loop, so the sandbox needs
+  # loader.zsh present (bootstrap symlinks it from core/zsh/ in a real install). The loader
+  # itself has no NN- prefix, so the glob never picks it up.
   ln -s "$REPO/core/zsh/loader.zsh" "$zcfg/loader.zsh"
   order_log="$zhome/order.log"
   # A global /etc/zshenv can force ZDOTDIR (overriding an env-passed one), so set ZDOTDIR
@@ -218,10 +222,10 @@ if command -v zsh >/dev/null 2>&1; then
   assert_eq "loader sources cleanly (exit 0)" 0 "$zrc"
   assert_eq "loader produced no errors" "" "$zerr"
   got_order="$(tr '\n' ' ' <"$order_log" 2>/dev/null | sed 's/ $//')"
-  assert_eq "modules sourced in canonical order" "${modules[*]}" "$got_order"
+  assert_eq "fragments sourced in numeric order" "${frags[*]}" "$got_order"
   # zcompile self-heal: a .zwc should appear next to a sourced stub.
   if compgen -G "$zcfg"/*.zwc >/dev/null; then
-    ok "loader byte-compiles modules (.zwc written beside the symlink)"
+    ok "loader byte-compiles fragments (.zwc written beside the symlink)"
   else
     skipt "zcompile produced no .zwc (acceptable on this zsh build)"
   fi

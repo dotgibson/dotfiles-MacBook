@@ -617,7 +617,7 @@ uninstall() {
   # fixed set. Kept in one list here so an uninstall mirrors the install exactly.
   local -a dests=(
     "$HOME/.local/bin/clip" "$HOME/.local/bin/clip-paste"
-    "$CFG/zsh/os.zsh" "$HOME/.zshenv" "$CFG/zsh/.zprofile" "$CFG/zsh/.zshrc"
+    "$CFG/zsh/80-os.zsh" "$HOME/.zshenv" "$CFG/zsh/.zprofile" "$CFG/zsh/.zshrc"
     "$CFG/starship.toml" "$CFG/lazygit/config.yml"
     "$CFG/tmux/tmux.conf" "$CFG/tmux/tmux.reset.conf" "$CFG/tmux/scripts" "$CFG/tmux/os.conf"
     "$CFG/nvim" "$HOME/.vimrc"
