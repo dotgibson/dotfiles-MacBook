@@ -1,30 +1,22 @@
 # dotfiles-MacBook/zsh/zshrc  →  ~/.config/zsh/.zshrc
 # ──────────────────────────────────────────────────────────────────────────────
 # Interactive shell. Sources the Core modules (+ the macOS os layer + any local
-# overrides) in the ONE correct order (matches the loop below and README):
-#   tools → ui -> options → history → aliases → git → functions → fzf → bindings
-#         → plugins → op → maint → update → os → local
+# overrides). v4 replaced the hand-declared module-name list with NUMBERED fragments:
+# every Core module is `NN-name.zsh` (00-tools … 60-update), the macOS layer lands as
+# `80-os.zsh`, and host tweaks as `99-local.zsh` — all symlinked FLAT into $ZSH_CFG. The
+# vendored loader globs them, sorts by the NN prefix, and sources each in order, so this
+# file no longer lists module names — it just sources loader.zsh (below).
 #
-# WHAT CHANGED (2026 refresh integration):
-#   • options.zsh + history.zsh are NEW Core modules that now own setopts, the
-#     completion system (compinit), and history config. They replace the inline
-#     blocks that used to live in THIS file — that duplication was exactly the
-#     drift the Core layer exists to kill, so the inline copies are gone.
-#   • update.zsh (the `up` command + the once/day "updates available" nudge) and
-#     maint.zsh (`maint-install` etc.) are sourced too — previously they were
-#     symlinked into ~/.config/zsh but never loaded, so `up`/`maint-install`
-#     didn't exist.
+# Order is load-bearing and is encoded in the numbering: 00-tools inits atuin (registers
+# its widget) and 35-fzf defines its zle widgets BEFORE 45-plugins loads zsh-vi-mode, whose
+# init fires the keybinding hook in 40-bindings. 10-options runs compinit BEFORE 45-plugins
+# (fzf-tab + carapace need it). 60-update sits late so its nudge prints just above the
+# prompt (incl. inside each new tmux pane).
 #
-# Order is load-bearing: tools inits atuin (registers its widget) and fzf defines
-# its zle widgets BEFORE plugins.zsh loads zsh-vi-mode, whose init fires the
-# keybinding hook in bindings.zsh. options.zsh runs compinit BEFORE plugins.zsh
-# (fzf-tab + carapace need it). update.zsh sits late so its nudge prints just
-# above the prompt (incl. inside each new tmux pane).
-#
-# NOTE on history location: history.zsh sets HISTFILE to $ZDOTDIR/.zsh_history
-# (was $XDG_STATE_HOME/zsh/history here). atuin holds your real searchable
-# history regardless; if you want the old flat-file path, set HISTFILE in
-# ~/.config/zsh/local.zsh (sourced last, so it wins).
+# NOTE on history location (v4): 15-history.zsh sets HISTFILE under $XDG_STATE_HOME/zsh/history
+# — history is mutable STATE, not config, so it no longer lives in the symlinked $ZDOTDIR tree.
+# atuin holds your real searchable history regardless; override HISTFILE in
+# ~/.config/zsh/99-local.zsh (the loader sources it last, so it wins) for a different path.
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── XDG fallbacks ─────────────────────────────────────────────────────────────
@@ -34,18 +26,17 @@
 : "${XDG_STATE_HOME:=$HOME/.local/state}"
 : "${XDG_CACHE_HOME:=$HOME/.cache}"
 
-# ── Core modules + macOS layer + local overrides, in order ───────────────────
-# (history + completion/compinit + setopts are owned by history.zsh/options.zsh.)
+# ── Core fragments + macOS layer + local overrides, via the numbered loader ──
+# (history + completion/compinit + setopts are owned by 15-history.zsh/10-options.zsh.)
 #
-# The byte-compile-then-source loop now lives in the VENDORED Core loader
-# (core/zsh/loader.zsh → ~/.config/zsh/loader.zsh), so every OS repo declares the load
-# order and sources ONE shared implementation instead of hand-rolling the same ~10 lines
-# (B12). loader.zsh runs at THIS top-level scope — never wrapped in a function — so the
-# setopts / aliases / compinit each module performs persist into the interactive shell.
-# (It byte-compiles each module to a .zwc beside its symlink and sources the wordcode;
+# The glob-sort-byte-compile-then-source loop lives in the VENDORED Core loader
+# (core/zsh/loader.zsh → ~/.config/zsh/loader.zsh): it globs $ZSH_CFG/NN-*.zsh, sorts by the
+# NN prefix, and sources ONE shared implementation instead of this file hand-listing modules
+# (v4). loader.zsh runs at THIS top-level scope — never wrapped in a function — so the
+# setopts / aliases / compinit each fragment performs persist into the interactive shell.
+# (It byte-compiles each fragment to a .zwc beside its symlink and sources the wordcode;
 # self-healing on edit/pull; .zwc files stay in $ZSH_CFG, never the repo.)
 ZSH_CFG="${ZDOTDIR:-$HOME/.config/zsh}"
-_CORE_MODULES=(tools ui options history aliases git functions fzf bindings plugins op maint update os local)
 # Prefer the installed runtime symlink ($ZSH_CFG/loader.zsh). FALLBACK to the vendored copy
 # via this file's OWN resolved path, because a plain `git pull` updates this (symlinked)
 # .zshrc to reference loader.zsh BEFORE the user re-runs `./bootstrap.sh --links-only` that
@@ -64,7 +55,6 @@ else
   fi
   unset _zshrc_self
 fi
-unset _CORE_MODULES
 
 # ── auto-start/attach tmux (runs AFTER local.zsh, so its opt-out knobs work) ──
 # Placed here — not in the `os` module — because the loader above already sourced

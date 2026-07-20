@@ -1,4 +1,4 @@
-# dotfiles-MacBook/os/macos.zsh  →  ~/.config/zsh/os.zsh
+# dotfiles-MacBook/os/macos.zsh  →  ~/.config/zsh/80-os.zsh  (v4: numbered OS-layer fragment)
 # ──────────────────────────────────────────────────────────────────────────────
 # macOS-only INTERACTIVE shell extras. Sourced near the end of .zshrc (after the
 # Core modules), so it can override Core. PATH/env that must exist in every shell
