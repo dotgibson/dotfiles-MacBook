@@ -80,7 +80,7 @@ fi
 #     restored, or just renamed) or creates it if there's nothing to attach to
 if command -v tmux >/dev/null 2>&1 \
   && [[ -z "$TMUX" && -t 1 && "$TERM_PROGRAM" != "vscode" && -z "${DOTFILES_NO_AUTOTMUX:-}" ]]; then
-  _autotmux_want="${DOTFILES_TMUX_SESSION:-main}"
+  _autotmux_want="${DOTFILES_TMUX_SESSION:-Gerrrt}"
 
   if ! tmux ls >/dev/null 2>&1; then
     # No server yet: start one so continuum restores before we decide what to join.
