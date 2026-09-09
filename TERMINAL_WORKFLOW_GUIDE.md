@@ -540,17 +540,18 @@ comments, help text, or the names of secret-*handling* code. Specifically:
 
 **Portability / hardcoded-path findings (low severity, by design):**
 
-- The only absolute paths are **`$HOME`-relative** (e.g. the 1Password socket under
-  `$HOME/Library/Group Containers/…`, `MISE_TRUSTED_CONFIG_PATHS="$HOME/dotfiles-MacBook"`).
+- The only absolute paths are **`$HOME`-relative** or resolved from this checkout (e.g. the
+  1Password socket under `$HOME/Library/Group Containers/…`,
+  `MISE_TRUSTED_CONFIG_PATHS="$DOTFILES_MACBOOK_ROOT"`).
   These are *correctly* macOS-scoped: the socket path and `osxkeychain` credential
   helper live in the **OS layer** (`zprofile`, `os/macos.gitconfig`) precisely so the
   vendored Core stays byte-identical across the fleet. This is the intended split, not
   drift.
 - **Machine-specific dir assumptions are parameterised, not hardcoded**: `pullall`
   reads `$PULLALL_DIR`, `serve`/status scripts probe interfaces live, `NOTES_DIR`
-  defaults but is overridable. The one convenience alias that bakes a path —
-  `dotsync='cd "$HOME/dotfiles-MacBook"'` — is macOS-layer-local and `$HOME`-relative,
-  so it's portable across macOS accounts.
+  defaults but is overridable. Even `dotsync` bakes nothing: it `cd`s to
+  `$DOTFILES_MACBOOK_ROOT`, which `zprofile` and `os/macos.zsh` resolve from their own
+  symlinked path, so it follows this checkout wherever it lives.
 - **`git`/identity secrets are correctly not here**: `os/macos.gitconfig` carries
   only the keychain helper + gpg program; name/email/signingkey are delegated to an
   untracked `~/.config/git/local.gitconfig`.
