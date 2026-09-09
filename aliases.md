@@ -16,7 +16,7 @@ See `core/` for the full Core alias reference (modern CLI, git, safety nets).
 | `showfiles` | `defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder`  |
 | `hidefiles` | `defaults write com.apple.finder AppleShowAllFiles -bool false && killall Finder` |
 | `o`         | `open` — `o .` opens the current directory in Finder                              |
-| `dotsync`   | `cd "$HOME/dotfiles-MacBook"`                                                     |
+| `dotsync`   | `cd` to this checkout (resolved from the symlink, wherever it lives)              |
 
 ## Conditional (activated only when the tool is installed)
 
