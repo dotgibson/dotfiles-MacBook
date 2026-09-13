@@ -1,0 +1,36 @@
+name: lint
+
+# Thin caller for the reusable shell/zsh gate authored in dotfiles-core
+# (.github/workflows/lint-call.yml) — the same three fleet legs the other eight OS and
+# role repos have had since Core v7: Core-owned block duplication, undeclared Core
+# HAVE_* reads, and the os.capabilities schema (dotfiles-core#960, #961). This repo's
+# own ci.yml is the FULLER gate (shfmt blocking, config parsing, pins, secrets, the
+# repo suite) and stays; what it could never do is run those three scanners, because
+# their population is "every caller of lint-call.yml" and this repo was not one
+# (dotfiles-core#961: "eight is the whole denominator" — this makes it nine).
+# Measured clean on all three legs before this caller landed (dotfiles-core#973, #246).
+#
+# SHA-PINNED like every other reusable this repo calls (test/check-pins.sh asserts the
+# pin equals core.lock's core_sha), so a Core release cannot change this gate's
+# behaviour under a PR — the sync fan-out moves the pin together with core/
+# (dotfiles-core#482). The other repos pin the moving @v7 alias instead; see
+# core/RELEASE-STRATEGY.md for why this repo chose the SHA.
+#
+# DELIBERATELY UNFILTERED (no paths-ignore): a filtered workflow never creates its check
+# runs on a docs-only PR, so a required `lint /` context would sit in "Expected" forever.
+# The job is cheap and its pinned tools are cached.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: dotgibson/dotfiles-core/.github/workflows/lint-call.yml@1368f97210cd86ad7d8454aef565086f473a1b6f # v7.3.0
