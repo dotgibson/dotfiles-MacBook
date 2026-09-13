@@ -88,7 +88,7 @@ own resolved path so a shell never starts with *zero* Core modules.
 | **Aliases**           | `20-aliases.zsh` (modern-stack), `25-git.zsh` (git verbs), `os/macos.zsh` (macOS-only)                                                                                                                                                                                            | every optional-tool alias is `HAVE_*`-guarded |
 | **Functions**         | `30-functions.zsh` (utilities), `35-fzf.zsh` (zle widgets), `25-git.zsh` (fuzzy `gaf`/`grf`/`grsf`), `50-op.zsh` (1Password)                                                                                                                                                      | —                                             |
 | **Plugin manager**    | `45-plugins.zsh` — hand-rolled, **no Oh-My-Zsh / no Zinit**                                                                                                                                                                                                                       | clones to `$ZDOTDIR/plugins`, pinned by SHA   |
-| **Completion system** | `10-options.zsh` (`compinit`), `45-plugins.zsh` (`carapace`, `fzf-tab`), `os/macos.zsh` (direnv/gh/uv/ty + `_bootstrap`)                                                                                                                                                          | —                                             |
+| **Completion system** | `10-options.zsh` (`compinit`), `45-plugins.zsh` (`carapace`, `fzf-tab`), `00-tools.zsh` (direnv hook, gh/uv/ty completion files), `os/macos.zsh` (`_bootstrap`)                                                                                                                                                          | —                                             |
 
 ### 1.4 Startup-performance profile
 
@@ -104,9 +104,10 @@ spawns *zero* subprocesses for the shell-hook tools. Mechanisms found:
    §2.5) starts a **login shell per pane** — an un-cached `$(brew shellenv)` would
    fork brew on every pane.
 2. **`_cache_eval` for every hook tool** (`00-tools.zsh`): starship, zoxide, mise, atuin
-   — plus direnv/gh/uv/ty in `os/macos.zsh` — have their `init`/`activate`/completion
-   scripts generated once and `source`d thereafter. Binary lookup uses zsh's
-   `$commands` hash (fork-free), not `$(command -v)`. Env-sensitive generators
+   and direnv have their `init`/`activate`/hook scripts generated once and `source`d
+   thereafter; gh/uv/ty completions go through `_cache_completion` into a fpath
+   directory instead, so compinit autoloads them and nothing is `source`d per shell.
+   Binary lookup uses zsh's `$commands` hash (fork-free), not `$(command -v)`. Env-sensitive generators
    (`ATUIN_NOBIND`, `CARAPACE_BRIDGES`) fold the env into the cache **filename**
    (`--salt`) so flipping the env busts the cache instead of serving stale.
 3. **`compinit` fast path** (`10-options.zsh`): the `.zcompdump` security audit
@@ -126,11 +127,11 @@ spawns *zero* subprocesses for the shell-hook tools. Mechanisms found:
 
 - **Once-a-day slow shell.** The first interactive shell after the 24h window pays a
   full `compaudit` over `fpath`. This is intentional (security) and self-amortising.
-- **Four synchronous completion generators in `os/macos.zsh`.** `direnv`, `gh`, `uv`,
-  `ty` each run through `_cache_eval` **after** compinit, on the critical path. They
-  are cached (one `source` each), but only `direnv`'s chpwd hook genuinely needs to
-  exist before the first prompt. `gh`/`uv`/`ty` completions could be `zsh-defer`d.
-  (See §5 recommendation #1.)
+- **Completion generators — resolved upstream.** `os/macos.zsh` used to run `direnv`,
+  `gh`, `uv` and `ty` through `_cache_eval` after compinit, on the critical path. Core
+  owns all four now (`00-tools.zsh`, dotfiles-core#449/#579): direnv's hook is cached at
+  band 00, and the three completions are written to fpath before compinit runs, so
+  there is no per-shell `source` left to defer. (§5 recommendation #1 is overtaken.)
 - **`zstyle ':completion:*' rehash true`** (`10-options.zsh`): forces a PATH rehash on
   completion attempts. Ergonomic (newly-installed binaries complete immediately) at a
   small per-completion cost — not a startup cost.
@@ -568,21 +569,13 @@ then `make sync`. Only `os/macos.*`, `ghostty/`, and this repo's own files are
 edited here directly.
 
 **1. Defer the three non-critical completion generators in `os/macos.zsh`
-(execution speed).**
-`gh`, `uv`, and `ty` completions are generated (cached) *synchronously after
-compinit*, yet none is needed before the first prompt — only `direnv`'s chpwd hook
-must be in place early. Wrapping the three in `zsh-defer` (already loaded by the time
-`os` runs) moves their `source` cost off the critical path, shaving the tail of
-`zsh -i -c exit` for zero behavioural change and no new dependency:
-
-```zsh
-_defer_or_now_cmd() { (( $+functions[zsh-defer] )) && zsh-defer "$@" || "$@"; }
-_defer_or_now_cmd _cache_eval gh gh completion -s zsh
-_defer_or_now_cmd _cache_eval uv uv generate-shell-completion zsh
-_defer_or_now_cmd _cache_eval ty ty generate-shell-completion zsh
-```
-
-Keep `direnv` synchronous. Measure before/after with `hyperfine 'zsh -i -c exit'`.
+(execution speed) — overtaken upstream, nothing left to do here.**
+This recommended wrapping the `gh`/`uv`/`ty` generators in `zsh-defer` to take their
+post-compinit `source` off the critical path. Core took the whole block over instead
+(dotfiles-core#449) and then moved the three completions to `_cache_completion` in
+`00-tools.zsh` (dotfiles-core#579), which writes the completion files into fpath
+*before* compinit and never `source`s them; direnv's hook is cached at band 00 beside
+mise/atuin. `os/macos.zsh` dropped its copy, so the only tuning left lives in Core.
 
 **2. Make `pane-border-status` visible by default with pane titles (ergonomics).**
 The config already binds `prefix P` to toggle per-pane titles but ships
