@@ -284,26 +284,26 @@ n_restored=0 # --uninstall: backups restored over the removed link
 # run — a rate-limited registry, a runtime that won't build — so each was written
 # `|| info "…"` and then FORGOTTEN: the run still closed with "bootstrap complete" and
 # exit 0, leaving a box that got none of its runtimes indistinguishable from a good one,
-# to the operator and to anything parsing --json alike. These two arrays are the record.
+# to the operator and to anything parsing --json alike. Two channels are the record.
 #
 # ERROR   = a step that was supposed to do something and didn't (mise, defaults.sh,
 #           chsh, tpm). Non-empty ⇒ the closing line says so and we exit 3.
 # WARNING = a notice that does NOT make the run degraded (a tool not on PATH *yet*
 #           because you need a new shell). Never affects the exit code.
 #
-# This implements the intent documented upstream at core/lib/bootstrap-lib.sh:939-967
-# (blib_note_fail / blib_failures_report) in bootstrap's own idiom: that API models
-# failures only — there is no warnings channel — and prints in the blib_* palette
-# rather than err()'s glyph, which mid-run reads as two different programs. Same
-# shape as the n_* counters folding in BLIB_* tallies below.
+# The ERROR channel is Core's: fail_note is a shim over blib_note_fail, which records
+# into the lib's BLIB_FAILED and warns on stderr as it happens, and the closing tally
+# comes from blib_failures_report (dotfiles-core#973). That is the same array the shared
+# scaffold records its OWN failures into (a tpm clone behind a proxy), so there is no
+# longer a fold from one ledger into the other, and no reset that could drop a miss
+# recorded before the wiring step. The lib models failures only — there is no warnings
+# channel — so WARNINGS stays this file's own.
 #
-# Both recorders must END on a zero status (err/info return 0) or a call in statement
-# position would trip `set -e`.
-FAILURES=()
+# Both recorders must END on a zero status (blib_note_fail/info return 0) or a call in
+# statement position would trip `set -e`.
 WARNINGS=()
 fail_note() { # fail_note <message>  → record a degraded step; makes the run exit 3
-  FAILURES+=("$1")
-  err "$1"
+  blib_note_fail "$1"
 }
 warn_note() { # warn_note <message>  → record a non-fatal notice; exit code unchanged
   WARNINGS+=("$1")
@@ -374,13 +374,13 @@ emit_json() {
   # though bash keeps variables and functions in separate namespaces.
   local _dry=false _ok=true
   ((DRY)) && _dry=true
-  ((${#FAILURES[@]})) && _ok=false
+  (($(blib_failed_count))) && _ok=false
   # TOOLS_JSON is empty until verify_tools runs, which the uninstall path never does —
   # `"tools":{}` there is correct and means "no probe was taken", not "nothing present".
   printf '{"dry_run":%s,"ok":%s,"linked":%d,"backed_up":%d,"seeded":%d,"skipped":%d,"removed":%d,"restored":%d,"tools":{%s},"errors":%s,"warnings":%s,"next_steps":%s}\n' \
     "$_dry" "$_ok" "$n_linked" "$n_backed" "$n_seeded" "$n_skipped" "$n_removed" "$n_restored" \
     "$TOOLS_JSON" \
-    "$(json_array "${FAILURES[@]+"${FAILURES[@]}"}")" \
+    "$(json_array "${BLIB_FAILED[@]+"${BLIB_FAILED[@]}"}")" \
     "$(json_array "${WARNINGS[@]+"${WARNINGS[@]}"}")" \
     "$(json_array "${NEXT_TODO[@]+"${NEXT_TODO[@]}"}")" >&3
 }
@@ -402,10 +402,9 @@ print_ledger() {
     printf '  %s%s%s %d warning(s):\n' "$c_y" "$G_INFO" "$c_0" "${#WARNINGS[@]}"
     printf '      - %s\n' "${WARNINGS[@]+"${WARNINGS[@]}"}"
   fi
-  if ((${#FAILURES[@]})); then
-    printf '  %s%s%s %d step(s) did not complete:\n' "$c_r" "$G_ERR" "$c_0" "${#FAILURES[@]}" >&2
-    printf '      - %s\n' "${FAILURES[@]+"${FAILURES[@]}"}" >&2
-  fi
+  # The failures half is the lib's report, on stderr like the lines it re-lists; it
+  # returns non-zero when there was anything to print, which is not this function's verdict.
+  blib_failures_report >&2 || true
 }
 
 print_summary() {
@@ -518,7 +517,7 @@ spin() {
 }
 
 # brew_shellenv runs TWICE per run (the unconditional call below and again in provision()),
-# so a genuinely broken brew trips both calls. Ledger it once — a second FAILURES entry for
+# so a genuinely broken brew trips both calls. Ledger it once — a second ledger entry for
 # the same broken step would inflate the "N step(s) did not complete" tally — and just say
 # it plainly the second time. Ends on a zero status (both fail_note and err do) so a call in
 # statement position cannot trip `set -e`.
@@ -1104,7 +1103,14 @@ set_login_shell() {
     info "login shell unchanged (declined)"
     return 0
   }
-  grep -qxF "$brew_zsh" /etc/shells 2>/dev/null || echo "$brew_zsh" | sudo tee -a /etc/shells >/dev/null
+  # The one privileged line in this bootstrap (os/macos.capabilities: NOTHING HERE IS
+  # PRIVILEGED — Homebrew refuses root). Resolve the escalator the fleet's way rather than
+  # assume a bare `sudo`: root runs directly, else sudo (then doas) by absolute path.
+  blib_resolve_su --require || {
+    fail_note "no privilege escalator — could not add $brew_zsh to /etc/shells; add it by hand, then: chsh -s $brew_zsh"
+    return 0
+  }
+  grep -qxF "$brew_zsh" /etc/shells 2>/dev/null || echo "$brew_zsh" | blib_priv tee -a /etc/shells >/dev/null
   if chsh -s "$brew_zsh"; then
     ok "login shell set — open a new terminal to use it"
   else
@@ -1127,8 +1133,8 @@ wire_links() {
   # shellcheck disable=SC2034  # read by the sourced bootstrap-lib.sh (blib_* honor BLIB_DRY)
   BLIB_DRY="$DRY"
   BLIB_LINKED=0 BLIB_SEEDED=0 BLIB_BACKED=0 BLIB_SKIPPED=0
-  # Reset the failure ledger too, so a second blib_link_* call in one run can't double-count.
-  BLIB_FAILED=()
+  # NOT BLIB_FAILED: since fail_note records into it, a reset here would drop every miss
+  # ledgered before this step (a failed brew bundle, say). The lib only ever appends.
   # blib_* are not --quiet-aware and conflate section headers with actionable messages
   # (seeded-file notes, ssh wiring) on the same stream — so we do NOT redirect them away
   # under --quiet: a /dev/null there would hide those changes too, not just headers. We
@@ -1183,13 +1189,9 @@ wire_links() {
   n_backed=$((n_backed + BLIB_BACKED))
   n_seeded=$((n_seeded + BLIB_SEEDED))
   n_skipped=$((n_skipped + BLIB_SKIPPED))
-  # ...and the scaffold's FAILURES, so a lib-internal failure (a tpm clone behind a proxy)
-  # makes this run exit 3 like any other degraded step. An array, not a counter, so it
-  # appends. `"${arr[@]+"${arr[@]}"}"` because bash 3.2 under `set -u` treats an empty array
-  # expansion as unset — the happy path leaves it empty. Appended DIRECTLY rather than via
-  # fail_note: blib_note_fail already printed it to stderr, and print_ledger re-lists it at
-  # the end; routing through fail_note would print the same line a third time.
-  FAILURES+=("${BLIB_FAILED[@]+"${BLIB_FAILED[@]}"}")
+  # The scaffold's own failures (a tpm clone behind a proxy) need no folding: fail_note
+  # records into the same BLIB_FAILED, so they make this run exit 3 like any other
+  # degraded step and appear once in the closing tally.
 
   # ── macOS-only links the shared scaffold does NOT own ──────────────────────
   # zsh entry layer (ZDOTDIR model): ~/.zshenv sets ZDOTDIR; .zprofile/.zshrc live in
@@ -1465,8 +1467,8 @@ uninstall() {
   info "still running: the sketchybar + borders launchd agents — stop them with: brew services stop sketchybar borders"
   # Same contract as the install path: a partial reversal must not read like a clean one.
   # The dests that DID come out are listed above; these are the ones still wired.
-  if ((${#FAILURES[@]})); then
-    err "uninstall finished with ${#FAILURES[@]} failed step(s) — see above; those paths are still linked (exit 3)"
+  if (($(blib_failed_count))); then
+    err "uninstall finished with $(blib_failed_count) failed step(s) — see above; those paths are still linked (exit 3)"
   fi
 }
 
@@ -1480,7 +1482,7 @@ if ((UNINSTALL)); then
   # Exit 3 on a partial reversal, matching the install path's meaning of the code: the
   # run happened, but the machine is in a state you did not ask for. `exit 0` here was
   # unconditional, so a dest that would not unlink reported success.
-  if ((${#FAILURES[@]})); then exit 3; fi
+  if (($(blib_failed_count))); then exit 3; fi
   exit 0
 fi
 
@@ -1578,10 +1580,10 @@ print_next_steps
 if ((DRY)); then
   info "dry run — nothing above was actually changed; re-run without --dry-run to apply"
   info "next steps (GUI permissions, git identity) are probed and reported after a real run"
-elif ((${#FAILURES[@]})); then
+elif (($(blib_failed_count))); then
   # NOT ok "…complete" — the whole point of #133 is that a degraded run must not look
   # like a clean one. The failing steps are listed by print_summary just above.
-  err "macOS bootstrap finished with ${#FAILURES[@]} failed step(s) — see above (exit 3)"
+  err "macOS bootstrap finished with $(blib_failed_count) failed step(s) — see above (exit 3)"
 else
   ok "macOS bootstrap complete — open a new shell or: exec zsh"
 fi
@@ -1601,4 +1603,4 @@ emit_json
 # (a taken-no-branch `if` yields status 0). With an unconditional trailing `exit`, the
 # reachability pass in shellcheck declares on_interrupt — reached only via the INT/TERM
 # trap, which it cannot see — uninvoked, tripping SC2329 on code that was already there.
-if ((${#FAILURES[@]})); then exit 3; fi
+if (($(blib_failed_count))); then exit 3; fi
