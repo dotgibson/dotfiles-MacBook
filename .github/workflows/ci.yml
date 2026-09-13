@@ -181,10 +181,11 @@ jobs:
       # is valid bash — which is why it is its own leg.
       #
       # Core v4.14.0 ships this rule as a blocking leg of the reusable lint-call.yml. This
-      # repo does not call that workflow (its gate is fuller: gitleaks, markdownlint, config
-      # parsing, pin checks), so the rule is PORTED rather than inherited — reusing the
-      # vendored _core_return_trap_hits, not a copy of it. See #154; dotfiles-core#564
-      # tracks the general problem of these two gates drifting apart.
+      # repo now calls that workflow too (lint.yml, since #246 — for the three fleet
+      # scanners nothing here could run), but this gate is the fuller one (gitleaks,
+      # markdownlint, config parsing, pin checks, the repo suite) and stays, so the rule is
+      # PORTED here as well as inherited — reusing the vendored _core_return_trap_hits, not
+      # a copy of it. See #154; dotfiles-core#564 tracks these two gates drifting apart.
       - name: RETURN-trap discipline
         run: make trap-guard
 
