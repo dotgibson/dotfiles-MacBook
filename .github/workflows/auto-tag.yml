@@ -72,7 +72,7 @@ concurrency:
 
 jobs:
   tag:
-    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@1368f97210cd86ad7d8454aef565086f473a1b6f # v7.3.0
+    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@3e0fbfe16a9c0f2e21c4517e22d1bc5e092d3ebb # v7.4.0
     # `inputs` is empty on a push event, so this reads `patch` there and the chosen
     # component on a dispatch. One caller, both flows.
     with:
