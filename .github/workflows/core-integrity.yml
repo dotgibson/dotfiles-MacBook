@@ -14,4 +14,4 @@ permissions:
 
 jobs:
   guard:
-    uses: dotgibson/dotfiles-core/.github/workflows/core-integrity-call.yml@f1e07966c50e9e880adb51ca7a1af1a9c1ee6fda # v7.6.0
+    uses: dotgibson/dotfiles-core/.github/workflows/core-integrity-call.yml@606dc8cc23abeed01373c8f16c3c87cde691453a # v7.7.0
