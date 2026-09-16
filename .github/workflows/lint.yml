@@ -33,4 +33,4 @@ permissions:
 
 jobs:
   lint:
-    uses: dotgibson/dotfiles-core/.github/workflows/lint-call.yml@606dc8cc23abeed01373c8f16c3c87cde691453a # v7.7.0
+    uses: dotgibson/dotfiles-core/.github/workflows/lint-call.yml@a4907d555d9f7c15319ac0d923577bea69dde906 # v7.8.0
