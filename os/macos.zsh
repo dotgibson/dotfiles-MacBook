@@ -48,6 +48,7 @@ alias hidefiles='defaults write com.apple.finder AppleShowAllFiles -bool false &
 alias o='open'                                          # `o .` to open in Finder
 
 # trash(1): send files to macOS Trash instead of permanently deleting them.
+# Built into macOS 15+ (/usr/bin/trash), not brewed; older hosts keep Core's rm -i.
 # Overrides the Core `rm='rm -i'` safety net with something even safer.
 # `rm -f` / `command rm` still bypass this when you need the real thing.
 command -v trash >/dev/null 2>&1 && alias rm='trash'

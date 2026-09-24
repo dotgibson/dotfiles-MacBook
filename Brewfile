@@ -84,7 +84,9 @@ brew "w3m"           # terminal web browser (Core: `web` alias; text-mode reader
 # ── File management ────────────────────────────────────────────────────────────
 brew "yazi"
 brew "ouch"          # one-binary archive (un)packer — Core's extract() prefers it (30-functions.zsh probes HAVE_OUCH)
-brew "trash"         # rm → Trash  (macOS; safer than rm; macos.zsh aliases rm → trash)
+# trash: not brewed — macOS 15+ ships /usr/bin/trash, which is what macos.zsh's
+# rm → trash alias binds. The formula is keg-only (:shadowed_by_macos), so it never
+# linked onto PATH and backed nothing (#261).
 
 # ── Editor & multiplexer ───────────────────────────────────────────────────────
 brew "neovim"
@@ -124,8 +126,8 @@ brew "glow"          # markdown rendering
 brew "lnav"          # log-file navigator — auto-detects formats, SQL queries + live tail over logs (`lnav <file>`; own command)
 brew "navi"          # interactive fzf-driven cheatsheets (os/macos.zsh aliases cheats → navi; `cheat` stays Core's core-help)
 brew "fastfetch"     # system/host info banner (os/macos.zsh aliases ff → fastfetch; config: fastfetch/) — complements onefetch (git-repo summary)
-# NOTE: tealdeer / mas / trash are declared once above (Modern CLI / Mac App Store /
-# File management). Duplicate declarations were removed — brew bundle is happy with one.
+# NOTE: tealdeer / mas are declared once above (Modern CLI / Mac App Store).
+# Duplicate declarations were removed — brew bundle is happy with one.
 #
 # ── Window management & keyboard (macOS desktop layer) ──────────────────────────
 # Fully-qualified names auto-tap on install — no separate `tap` lines needed.
