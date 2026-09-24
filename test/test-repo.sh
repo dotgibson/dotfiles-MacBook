@@ -38,6 +38,15 @@
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
+# Scrub git's hook environment. Run as the pre-commit `test-repo` hook, this script
+# inherits GIT_INDEX_FILE (and, from a worktree, GIT_DIR) pointing at the commit being
+# built. Every nested git call then acts on THAT repo instead of its own `-C` target:
+# Core's 45-plugins.zsh `git init`/`checkout` for a throwaway-HOME plugin wrote the
+# plugin's tree into this checkout's index (the commit then died on "invalid object"),
+# and `git init` under an inherited GIT_DIR re-initialised the real .git and flipped
+# core.bare. Nothing here needs them: every git call below names its repo explicitly.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # REPO_HOOK — the contributor's pre-commit hook, resolved the way git resolves it.
