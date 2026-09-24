@@ -4,7 +4,7 @@ macOS-specific aliases from `os/macos.zsh`, layered on top of Core.
 See `core/` for the full Core alias reference (modern CLI, git, safety nets).
 
 > **Note:** On macOS the Core `rm='rm -i'` safety net is overridden by
-> `rm='trash'` (if the `trash` CLI is installed), which moves files to the
+> `rm='trash'` (when `trash(1)` is available — built into macOS 15+), which moves files to the
 > Trash instead of deleting them.
 
 ## macOS Specific
