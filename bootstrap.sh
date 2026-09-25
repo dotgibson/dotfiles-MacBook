@@ -46,6 +46,13 @@ BREW="${BOOTSTRAP_BREW:-brew}"
 # is itself one of the pre-commit hooks, that means rewriting the hook mid-commit. Aimed
 # at a stub the install path still runs and is still asserted on; it just does not touch git.
 PRE_COMMIT="${BOOTSTRAP_PRE_COMMIT:-pre-commit}"
+# MISE — which mise binary runs `mise install`. Same seam, same reasoning as BREW: the step
+# runs AFTER brew_shellenv has put /opt/homebrew/bin at the front of PATH, so a PATH stub
+# loses to a real Homebrew mise. test/test-repo.sh's full and --no-brew runs then drove a
+# REAL `mise install` of every pinned runtime inside the throwaway HOME, against the
+# suite's dead proxy — slow, noisy, and once enough to fail an unrelated assertion (#269).
+# Used by the `command -v` gate too, so a stub decides whether the step runs at all.
+MISE="${BOOTSTRAP_MISE:-mise}"
 
 # usage() is a real function (heredoc) rather than `sed -n '2,18p' "$0"`: the old
 # form was coupled to header line numbers, so editing the banner silently drifted
@@ -1526,11 +1533,11 @@ fi
 # NOT under --links-only, which usage() and the README both promise is "just (re)create
 # symlinks, no installs" — this block sat outside the provision branch and installed
 # anyway. --no-brew still runs it, per its documented "symlinks + mise" contract.
-if ((LINKS_ONLY == 0)) && command -v mise >/dev/null 2>&1; then
+if ((LINKS_ONLY == 0)) && command -v "$MISE" >/dev/null 2>&1; then
   say "mise install"
   # spin already prints `err "<label> — failed (exit N)"` plus the captured log, so this
   # records the step and says what was lost — it does not re-report the failure itself.
-  spin "installing mise-managed tools" mise install ||
+  spin "installing mise-managed tools" "$MISE" install ||
     fail_note "mise install failed — node/python/ruby/go/rust/java/lua may be missing or stale; re-run: mise install"
 fi
 

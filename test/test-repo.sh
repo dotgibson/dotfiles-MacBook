@@ -287,7 +287,7 @@ else
   chmod +x "$abin/mise" "$abin/brew" "$abin/pre-commit"
   hook_before="$(cat "$REPO_HOOK" 2>/dev/null || true)"
   # A FULL run (no --links-only/--no-brew): the provision path is the whole point.
-  OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_BREW="$abin/brew" BOOTSTRAP_PRE_COMMIT="$abin/pre-commit" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" 2>&1)"
+  OUT="$(HOME="$ahome" PATH="$abin:$PATH" BOOTSTRAP_BREW="$abin/brew" BOOTSTRAP_PRE_COMMIT="$abin/pre-commit" BOOTSTRAP_MISE="$abin/mise" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" 2>&1)"
   brc=$?
   # The headline symptom, asserted on its own: silence is the bug.
   if [[ -n "$OUT" ]]; then ok "crashing brew: the run still PRINTS"; else no "crashing brew: the run still PRINTS" "zero bytes of output"; fi
@@ -356,13 +356,15 @@ shim_wins() {
 }
 
 # The B1b3 sandbox idiom, factored out because seven cases share it. Never touches the real
-# $HOME, the real .git/hooks (BOOTSTRAP_PRE_COMMIT) or the real Homebrew (BOOTSTRAP_BREW).
+# $HOME, the real .git/hooks (BOOTSTRAP_PRE_COMMIT), the real Homebrew (BOOTSTRAP_BREW) or
+# the real mise (BOOTSTRAP_MISE — a PATH stub alone loses to /opt/homebrew/bin, see bootstrap.sh).
 PHOME="" PBIN=""
 prov_sandbox() {
   PHOME="$(mktemp -d)"
   PBIN="$(mktemp -d)"
   mkdir -p "$PHOME/.config/tmux/plugins/tpm" # skip tpm's first-run network clone
-  printf '#!/bin/sh\nexit 0\n' >"$PBIN/mise"
+  # shellcheck disable=SC2016  # $0 must expand when the STUB runs, not when it is written
+  printf '#!/bin/sh\ntouch "$0.called"\nexit 0\n' >"$PBIN/mise"
   # shellcheck disable=SC2016  # $0 must expand when the STUB runs, not when it is written
   printf '#!/bin/sh\ntouch "$0.called"\nexit 0\n' >"$PBIN/pre-commit"
   chmod +x "$PBIN/mise" "$PBIN/pre-commit"
@@ -371,7 +373,7 @@ prov_run() { # prov_run <BOOTSTRAP_BREW value> [bootstrap args...] → OUT, RC
   local brewpath="$1"
   shift
   OUT="$(HOME="$PHOME" PATH="$PBIN:$PATH" \
-    BOOTSTRAP_BREW="$brewpath" BOOTSTRAP_PRE_COMMIT="$PBIN/pre-commit" \
+    BOOTSTRAP_BREW="$brewpath" BOOTSTRAP_PRE_COMMIT="$PBIN/pre-commit" BOOTSTRAP_MISE="$PBIN/mise" \
     BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 \
     https_proxy=http://127.0.0.1:1 HTTPS_PROXY=http://127.0.0.1:1 ALL_PROXY=http://127.0.0.1:1 \
     bash "$REPO/bootstrap.sh" "$@" 2>&1)"
@@ -539,13 +541,12 @@ CURLSTUB2
   printf '#!/bin/sh\necho "$*" >>"$0.log"\nexit 0\n' >"$PBIN/brew"
   chmod +x "$PBIN/brew"
   prov_run "$PBIN/brew"
-  # NOT an exact exit-code assertion, deliberately. A full run also reaches `mise install`,
-  # which is gated on `command -v mise` AFTER brew_shellenv has prepended /opt/homebrew/bin
-  # — so on a box with a real mise it runs the REAL one (the PATH stub cannot win there,
-  # the same shadowing B1b3 documents) and ledgers a failure against the blocked network,
-  # closing at 3; on a runner without mise the stub wins and it closes at 0. Both are
-  # correct, and neither is what this case is about. What provision() OWES here is that it
-  # did not ABORT the run (exit 1/2) and contributed no failure of its own.
+  # NOT an exact exit-code assertion, deliberately. A full run goes on past provision()
+  # into mise, the desktop services and the closing probes, and any of those may ledger a
+  # degraded step (exit 3) for reasons that are not this case's business. (mise used to be
+  # the one that did: before the BOOTSTRAP_MISE seam, a box with a real Homebrew mise ran it
+  # here against the blocked network.) What provision() OWES here is that it did not ABORT
+  # the run (exit 1/2) and contributed no failure of its own.
   if ((RC == 1 || RC == 2)); then
     no "satisfied Brewfile: provision() did not abort the run" "exit $RC"
   else
@@ -575,7 +576,7 @@ CURLSTUB2
   prov_sandbox
   prov_ran=1
   prov_run /nonexistent/brew --no-brew
-  # Same reasoning as case 6: the exit code depends on whether this box has a real mise.
+  # Same reasoning as case 6: only an abort (1/2) is provision()'s failure.
   if ((RC == 1 || RC == 2)); then
     no "--no-brew: provision() did not abort the run" "exit $RC"
   else
@@ -584,10 +585,18 @@ CURLSTUB2
   assert_contains "--no-brew: the run still reaches its summary" "$OUT" "linked ·"
   assert_contains "--no-brew: says it skipped the bundle" "$OUT" "skipping brew bundle"
   assert_not_contains "--no-brew: never runs the Homebrew installer" "$OUT" "Installing Homebrew"
-  # The FULL installer message, not bare "could not download": --no-brew still runs mise,
-  # and brew_shellenv puts /opt/homebrew/bin ahead of $PBIN, so on a box with a real mise
-  # the stub loses and rustup's own "could not download file" (dead proxy) matched too.
+  # The FULL installer message, not bare "could not download": before the BOOTSTRAP_MISE
+  # seam, --no-brew's mise step ran a real Homebrew mise here, and rustup's own "could not
+  # download file" (dead proxy) matched the bare string (#269).
   assert_not_contains "--no-brew: never touches the network" "$OUT" "could not download the Homebrew installer"
+  # --no-brew keeps its "symlinks + mise" contract, through the seam. The stub touching its
+  # marker proves both halves: the step still runs, and it ran the STUB — a call site that
+  # went back to bare `mise` would reach /opt/homebrew/bin's copy and leave no marker.
+  if [[ -e "$PBIN/mise.called" ]]; then
+    ok "--no-brew: mise install runs, through the BOOTSTRAP_MISE seam"
+  else
+    no "--no-brew: mise install runs, through the BOOTSTRAP_MISE seam" "the stub mise was never called"
+  fi
   prov_clean
 fi
 
