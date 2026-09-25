@@ -47,6 +47,14 @@ set -uo pipefail
 # core.bare. Nothing here needs them: every git call below names its repo explicitly.
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX
 
+# Scrub the XDG base dirs for the same reason. Every sandbox below overrides only HOME,
+# but zsh/zshenv exports all four on a wired Mac, so a run from a real shell would hand
+# bootstrap.sh the contributor's own ~/.local/state, ~/.local/share, … instead of the
+# throwaway HOME's. Unset, every `${XDG_*:-$HOME/…}` falls back into the sandbox. The
+# relink stamp (#266) is the sharp case: it writes $XDG_STATE_HOME/dotfiles-core/bootstrap.lock,
+# and a leaked value would repoint the real one at whichever worktree ran the tests.
+unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # REPO_HOOK — the contributor's pre-commit hook, resolved the way git resolves it.
