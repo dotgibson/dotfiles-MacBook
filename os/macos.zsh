@@ -51,7 +51,9 @@ alias o='open'                                          # `o .` to open in Finde
 # Built into macOS 15+ (/usr/bin/trash), not brewed; older hosts keep Core's rm -i.
 # Overrides the Core `rm='rm -i'` safety net with something even safer.
 # `rm -f` / `command rm` still bypass this when you need the real thing.
-command -v trash >/dev/null 2>&1 && alias rm='trash'
+# Honours Core's CORE_SHADOW_CLASSICS=0 (dotgibson/dotfiles-core#1187): with it
+# exported, `rm` is plain rm here too, as on every other box.
+[[ ${CORE_SHADOW_CLASSICS:-1} != 0 ]] && command -v trash >/dev/null 2>&1 && alias rm='trash'
 
 # navi: interactive, fzf-driven cheatsheets. Complements tealdeer (`help`, static
 # man-style) with runnable, arg-templated snippets. Bound to its OWN verb `cheats`

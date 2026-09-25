@@ -954,6 +954,29 @@ else
   skipt "zsh absent — skipping completion registration check"
 fi
 
+# rm→trash honours Core's CORE_SHADOW_CLASSICS=0 (#267). A stub `trash` on PATH makes
+# the check host-independent (trash(1) is only stock on macOS 15+).
+section "os/macos.zsh — rm→trash honours CORE_SHADOW_CLASSICS"
+if command -v zsh >/dev/null 2>&1; then
+  oshome="$(mktemp -d)"
+  mkdir -p "$oshome/bin" && printf '#!/bin/sh\n' >"$oshome/bin/trash" && chmod +x "$oshome/bin/trash"
+  # $1 = env assignment for the knob ("-u CORE_SHADOW_CLASSICS" to leave it unset).
+  rmalias() {
+    # shellcheck disable=SC2086,SC2016 # $1 word-splits into env args; the zsh body expands in zsh
+    env $1 ZDOTDIR="$oshome" PATH="$oshome/bin:$PATH" zsh -f -c '
+      autoload -Uz compinit && compinit -u -d "$1" >/dev/null 2>&1
+      source "$2/os/macos.zsh" >/dev/null 2>&1
+      print -r -- "${aliases[rm]:-none}"
+    ' zsh-test "$oshome/.zcompdump" "$REPO"
+  }
+  assert_eq "rm aliases to trash by default" "trash" "$(rmalias "-u CORE_SHADOW_CLASSICS")"
+  assert_eq "CORE_SHADOW_CLASSICS=0 leaves rm unaliased" "none" "$(rmalias CORE_SHADOW_CLASSICS=0)"
+  unset -f rmalias
+  rm -rf "$oshome"
+else
+  skipt "zsh absent — skipping rm→trash knob check"
+fi
+
 # ── E. macos/defaults.sh: arg parsing + dry-run summary ───────────────────────
 section "macos/defaults.sh — arg parsing & dry-run"
 OUT="$(bash "$REPO/macos/defaults.sh" -h 2>&1)"

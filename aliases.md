@@ -5,7 +5,8 @@ See `core/` for the full Core alias reference (modern CLI, git, safety nets).
 
 > **Note:** On macOS the Core `rm='rm -i'` safety net is overridden by
 > `rm='trash'` (when `trash(1)` is available — built into macOS 15+), which moves files to the
-> Trash instead of deleting them.
+> Trash instead of deleting them. Exporting `CORE_SHADOW_CLASSICS=0` drops both, so `rm` is
+> plain `rm` as on every other box.
 
 ## macOS Specific
 
