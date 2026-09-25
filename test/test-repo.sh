@@ -576,7 +576,10 @@ CURLSTUB2
   assert_contains "--no-brew: the run still reaches its summary" "$OUT" "linked ·"
   assert_contains "--no-brew: says it skipped the bundle" "$OUT" "skipping brew bundle"
   assert_not_contains "--no-brew: never runs the Homebrew installer" "$OUT" "Installing Homebrew"
-  assert_not_contains "--no-brew: never touches the network" "$OUT" "could not download"
+  # The FULL installer message, not bare "could not download": --no-brew still runs mise,
+  # and brew_shellenv puts /opt/homebrew/bin ahead of $PBIN, so on a box with a real mise
+  # the stub loses and rustup's own "could not download file" (dead proxy) matched too.
+  assert_not_contains "--no-brew: never touches the network" "$OUT" "could not download the Homebrew installer"
   prov_clean
 fi
 
