@@ -140,6 +140,11 @@ Module groups are `zsh nvim tmux git prompt tools desktop` — the first six com
 from Core, `desktop` is this layer's own (ghostty, fastfetch, aerospace,
 sketchybar, karabiner).
 
+A real full or `--links-only` run ends by stamping the host's relink state into
+`~/.local/state/dotfiles-core/bootstrap.lock`, which records which Core the box was last
+wired against. `core-doctor` compares that stamp with `core.lock` and reports `relink`.
+`--dry-run`, `--only`/`--skip`, and `--uninstall` leave the stamp as it was.
+
 #### Exit codes
 
 | Code  | Meaning                                                           |

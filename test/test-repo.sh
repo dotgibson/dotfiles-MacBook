@@ -297,6 +297,10 @@ else
   assert_contains "crashing brew: the bundle failure is ledgered" "$OUT" "brew bundle failed"
   assert_contains "crashing brew: the summary still prints" "$OUT" "linked ·"
   if [[ -L "$ahome/.zshenv" ]]; then ok "crashing brew: symlinks were still wired"; else no "crashing brew: symlinks were still wired" "the sandbox .zshenv is not a link"; fi
+  # The one FULL run in the suite, so the one place the stamp's full mode is pinned (#266).
+  # Degraded (exit 3) still stamps: it relinked, which is all the stamp claims.
+  assert_contains "full run: stamps this host's relink as mode=full (#266)" \
+    "$(cat "$ahome/.local/state/dotfiles-core/bootstrap.lock" 2>/dev/null)" "mode=full"
   # A full run reaches the pre-commit install (#135) — unless this box already has the
   # framework hook, in which case the run correctly reports it instead of reinstalling.
   if [[ -f "$abin/pre-commit.called" ]]; then
@@ -603,6 +607,56 @@ fi
 # Whatever the branches did, none of it may touch the contributor's real hook (B1b3's rule).
 assert_eq "B1b4 left the contributor's .git/hooks/pre-commit byte-identical" \
   "$prov_hook_before" "$(cat "$REPO_HOOK" 2>/dev/null || true)"
+
+# ── B1b5. bootstrap.sh: the host relink stamp (#266) ──────────────────────────
+# A real run records which Core this box relinked against, at
+# $XDG_STATE_HOME/dotfiles-core/bootstrap.lock, for core-doctor to compare with core.lock.
+# XDG_STATE_HOME is unset at the top of this file, so every stamp lands in the sandbox HOME.
+# Full mode is pinned in B1b3 (the suite's one full run); these cover links-only, the
+# idempotent re-run, and the three runs that must NOT touch the stamp.
+section "bootstrap.sh — host relink stamp (#266)"
+
+rs_bin="$(mktemp -d)"
+printf '#!/bin/sh\nexit 0\n' >"$rs_bin/mise"
+chmod +x "$rs_bin/mise"
+rs_run() { # rs_run <home> <args...> → OUT, RC
+  local h="$1"
+  shift
+  mkdir -p "$h/.config/tmux/plugins/tpm"
+  OUT="$(HOME="$h" PATH="$rs_bin:$PATH" BOOTSTRAP_MISE="$rs_bin/mise" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --no-brew "$@" 2>&1)"
+  RC=$?
+}
+rs_field() { sed -n "s/^$2=//p" "$1" 2>/dev/null; } # rs_field <file> <key>
+
+rs_home="$(mktemp -d)"
+rs_stamp="$rs_home/.local/state/dotfiles-core/bootstrap.lock"
+rs_run "$rs_home" --links-only
+assert_eq "--links-only run exits 0" 0 "$RC"
+if [[ -f "$rs_stamp" ]]; then ok "--links-only writes the host relink stamp"; else no "--links-only writes the host relink stamp" "no $rs_stamp"; fi
+assert_eq "the stamp records mode=links-only" "links-only" "$(rs_field "$rs_stamp" mode)"
+assert_eq "the stamp's core_sha matches core.lock" "$(rs_field "$REPO/core.lock" core_sha)" "$(rs_field "$rs_stamp" core_sha)"
+assert_contains "the run says it stamped" "$OUT" "relink stamped"
+
+rs_linked_at="$(rs_field "$rs_stamp" linked_at)"
+rs_run "$rs_home" --links-only
+assert_contains "an identical re-run reports the stamp current" "$OUT" "relink stamp current"
+assert_eq "an identical re-run leaves linked_at alone" "$rs_linked_at" "$(rs_field "$rs_stamp" linked_at)"
+
+rs_before="$(cat "$rs_stamp" 2>/dev/null)"
+HOME="$rs_home" BOOTSTRAP_ALLOW_NON_DARWIN=1 NO_COLOR=1 bash "$REPO/bootstrap.sh" --uninstall >/dev/null 2>&1
+assert_eq "--uninstall leaves the stamp byte-identical" "$rs_before" "$(cat "$rs_stamp" 2>/dev/null)"
+rm -rf "$rs_home"
+
+rs_home="$(mktemp -d)"
+rs_run "$rs_home" --links-only --dry-run
+if [[ -e "$rs_home/.local/state/dotfiles-core/bootstrap.lock" ]]; then no "--dry-run writes no stamp" "a stamp appeared"; else ok "--dry-run writes no stamp"; fi
+rm -rf "$rs_home"
+
+rs_home="$(mktemp -d)"
+rs_run "$rs_home" --links-only --only zsh
+if [[ -e "$rs_home/.local/state/dotfiles-core/bootstrap.lock" ]]; then no "--only (partial wiring) writes no stamp" "a stamp appeared"; else ok "--only (partial wiring) writes no stamp"; fi
+assert_contains "--only says the stamp was left as it was" "$OUT" "left as it was"
+rm -rf "$rs_home" "$rs_bin"
 
 # ── B1c. bootstrap.sh: a degraded run REPORTS itself (#133) ───────────────────
 # Steps that must not abort the run (mise, defaults.sh, chsh, tpm) were each written

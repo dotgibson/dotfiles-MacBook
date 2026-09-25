@@ -1432,6 +1432,31 @@ unlink_dest() { # unlink_dest <dest>
     n_restored=$((n_restored + 1))
   fi
 }
+
+# ── host relink stamp (#266) ──────────────────────────────────────────────────
+# Record, on THIS box, which Core its links were last wired against:
+# $XDG_STATE_HOME/dotfiles-core/bootstrap.lock, which core-doctor compares against
+# core.lock (and 60-update.zsh nudges on). Bootstraps on blib_main get this for free;
+# this one is not on the driver, so it mirrors blib_main's gate by hand. The helper decides
+# only WHAT the stamp says — WHETHER a run earned one is decided here:
+#   --dry-run       changed nothing, so it records nothing
+#   --only/--skip   wired part of the box; stamping it "relinked" would be a lie
+# Called LAST on the install path, so a run that aborts earlier leaves the previous stamp.
+# A degraded run (exit 3) still stamps, as blib_main's does: the stamp says "relinked",
+# not "healthy". An identical re-run writes nothing (the helper compares sans linked_at).
+stamp_relink() {
+  ((DRY)) && return 0
+  if ((ONLY_SEEN || SKIP_SEEN)); then
+    info "partial wiring (--only/--skip) — this host's relink stamp is left as it was"
+    return 0
+  fi
+  if ((LINKS_ONLY)); then
+    blib_write_relink_stamp "$REPO" links-only
+  else
+    blib_write_relink_stamp "$REPO" full
+  fi
+}
+
 uninstall() {
   local CFG="$HOME/.config"
   say "Uninstall — removing Core symlinks + restoring backups (Homebrew/packages untouched)"
@@ -1578,6 +1603,10 @@ if ((DRY == 0)); then
   check_git_identity
   check_ssh_dropins
 fi
+
+# The host relink stamp (#266) — the last thing that writes, so an abort anywhere above
+# leaves the previous stamp. --uninstall exited long before this; stamp_relink gates the rest.
+stamp_relink
 
 print_summary "summary"
 # Between the tally and the verdict: the checklist is part of the run REPORT, while the
