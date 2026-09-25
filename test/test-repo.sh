@@ -47,6 +47,14 @@ set -uo pipefail
 # core.bare. Nothing here needs them: every git call below names its repo explicitly.
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX
 
+# Scrub the XDG base dirs for the same reason. Every sandbox below overrides only HOME,
+# but zsh/zshenv exports all four on a wired Mac, so a run from a real shell would hand
+# bootstrap.sh the contributor's own ~/.local/state, ~/.local/share, … instead of the
+# throwaway HOME's. Unset, every `${XDG_*:-$HOME/…}` falls back into the sandbox. The
+# relink stamp (#266) is the sharp case: it writes $XDG_STATE_HOME/dotfiles-core/bootstrap.lock,
+# and a leaked value would repoint the real one at whichever worktree ran the tests.
+unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # REPO_HOOK — the contributor's pre-commit hook, resolved the way git resolves it.
@@ -576,7 +584,10 @@ CURLSTUB2
   assert_contains "--no-brew: the run still reaches its summary" "$OUT" "linked ·"
   assert_contains "--no-brew: says it skipped the bundle" "$OUT" "skipping brew bundle"
   assert_not_contains "--no-brew: never runs the Homebrew installer" "$OUT" "Installing Homebrew"
-  assert_not_contains "--no-brew: never touches the network" "$OUT" "could not download"
+  # The FULL installer message, not bare "could not download": --no-brew still runs mise,
+  # and brew_shellenv puts /opt/homebrew/bin ahead of $PBIN, so on a box with a real mise
+  # the stub loses and rustup's own "could not download file" (dead proxy) matched too.
+  assert_not_contains "--no-brew: never touches the network" "$OUT" "could not download the Homebrew installer"
   prov_clean
 fi
 
