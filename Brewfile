@@ -68,6 +68,7 @@ brew "ast-grep"      # AST-aware structural search/rewrite — the syntax-tree c
 brew "jq"            # JSON
 brew "yq"            # YAML
 brew "gron"          # greppable JSON (zsh helper expects it)
+brew "jc"            # command output → JSON (ps/dig/ifconfig/… | jc --X | jq) — the "structure" verb ahead of jq's "transform"; own command, core-doctor data / net row
 brew "jnv"           # interactive JSON explorer (jq-filter editor + collapsible viewer) — the "explore" verb to jq's "transform"; own command (00-tools.zsh probes HAVE_JNV)
 brew "xan"           # fast CSV slicing (maintained successor to the archived xsv)
 brew "visidata"      # interactive TUI for CSV/JSON/sqlite/parquet — the exploration complement to xan's slicing (`vd <file>`; own command)
