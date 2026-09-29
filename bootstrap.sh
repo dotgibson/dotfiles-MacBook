@@ -680,7 +680,7 @@ provision() {
   # `--no-brew` promises "skip Homebrew/brew bundle", but NO_BREW previously gated only the
   # bundle below — so on a fresh Mac the flag still downloaded and ran the Homebrew
   # installer (sudo prompt, several minutes, hundreds of MB). Gate the installer too.
-  if ((!NO_BREW)) && ! command -v "$BREW" >/dev/null 2>&1; then
+  if ((NO_BREW == 0)) && ! command -v "$BREW" >/dev/null 2>&1; then
     say "Installing Homebrew"
     # Download FIRST, check the status, THEN execute. The upstream one-liner
     # `/bin/bash -c "$(curl -fsSL …)"` cannot fail safely: a failed curl (no network, DNS,
@@ -712,7 +712,7 @@ provision() {
   # that into a clean exit with a remedy rather than letting `brew bundle` die at 127 with
   # no explanation.
   brew_shellenv || true
-  if ((!NO_BREW)) && [[ -f "$REPO/Brewfile" ]]; then
+  if ((NO_BREW == 0)) && [[ -f "$REPO/Brewfile" ]]; then
     # Escalate here, where Homebrew is genuinely required. Without this, a brew that exists
     # but whose shellenv failed reaches `brew bundle` as a bare `brew: command not found`
     # (exit 127) — the same misleading death this commit series removes from the installer
