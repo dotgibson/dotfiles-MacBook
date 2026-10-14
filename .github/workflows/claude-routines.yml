@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   claude-routines:
-    uses: dotgibson/dotfiles-core/.github/workflows/claude-routines-call.yml@3e9002bedb6bd41a9fe2b37c748cf713fc066f50 # v7.15.0
+    uses: dotgibson/dotfiles-core/.github/workflows/claude-routines-call.yml@08d4e1346ca80e1d97b3b6f7a1e5f2dd74c48796 # v7.15.1
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     with:
