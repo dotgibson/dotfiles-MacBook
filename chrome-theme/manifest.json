@@ -1,0 +1,27 @@
+{
+	"manifest_version": 3,
+	"version": "1.0.0",
+	"name": "Nord",
+	"description": "Nord (Arctic Ice Studio) — la misma paleta que Ghostty, SketchyBar, tmux, Starship, Spotify y nvim. Cargar en chrome://extensions con modo desarrollador.",
+	"theme": {
+		"properties": {
+			"ntp_background_alignment": "bottom"
+		},
+		"colors": {
+			"frame": [46, 52, 64],
+			"frame_inactive": [59, 66, 82],
+			"toolbar": [46, 52, 64],
+			"button_background": [0, 0, 0, 0],
+			"tab_text": [216, 222, 233],
+			"tab_background_text": [129, 161, 193],
+			"tab_line": [136, 192, 208],
+			"bookmark_text": [216, 222, 233],
+			"toolbar_button_icon": [216, 222, 233],
+			"ntp_background": [46, 52, 64],
+			"ntp_text": [216, 222, 233],
+			"ntp_link": [136, 192, 208],
+			"omnibox_background": [59, 66, 82],
+			"omnibox_text": [236, 239, 244]
+		}
+	}
+}

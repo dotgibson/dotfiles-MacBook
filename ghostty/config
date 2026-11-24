@@ -1,15 +1,36 @@
-# Theme
-theme = TokyoNight Storm
-background-opacity = 0.75
-background-blur = 20
-# frosted glass behind the 0.75 translucency (macOS); numeric = blur radius,
-# matched to sketchybar's blur_radius=20 so terminal + bar share the same glass.
+# Theme — Nord (Arctic Ice Studio), opaque. Keep in sync with kitty's
+# current-theme.conf and sketchybar/themes/nord.lua: bg #2E3440,
+# fg #D8DEE9, accent #88C0D0. No `theme =` line: the bundled Nord theme would
+# fight the explicit palette below. Glass is off on purpose (Nord pura).
+background = 2E3440
+foreground = D8DEE9
+cursor-color = 88C0D0
+selection-background = 4C566A
+selection-foreground = ECEFF4
+
+palette = 0=#3B4252
+palette = 1=#BF616A
+palette = 2=#A3BE8C
+palette = 3=#EBCB8B
+palette = 4=#81A1C1
+palette = 5=#B48EAD
+palette = 6=#88C0D0
+palette = 7=#E5E9F0
+palette = 8=#4C566A
+palette = 9=#BF616A
+palette = 10=#A3BE8C
+palette = 11=#EBCB8B
+palette = 12=#81A1C1
+palette = 13=#B48EAD
+palette = 14=#8FBCBB
+palette = 15=#ECEFF4
+
 macos-window-buttons = hidden
 macos-titlebar-style = hidden
 
 # Font
 font-family = 'CaskaydiaCove Nerd Font'
-font-size = 16
+font-size = 13
 font-thicken = true
 # Programming ligatures. Ghostty expects OpenType feature TAGS (unquoted, one per
 # line, repeatable) — not `"+ligatures"`, which is not a real tag and was silently
@@ -27,8 +48,8 @@ mouse-hide-while-typing = true
 # COST: continuous GPU draw → measurable battery use on a laptop. To turn it off,
 # comment the two lines below and reload (cmd+shift+, ). The shader lives in the
 # repo at ghostty/shaders/space.glsl, linked into ~/.config/ghostty/shaders.
-custom-shader = ~/.config/ghostty/shaders/space.glsl
-custom-shader-animation = true
+# custom-shader = ~/.config/ghostty/shaders/space.glsl
+# custom-shader-animation = false
 
 # Window
 window-save-state = always
@@ -41,11 +62,12 @@ window-padding-balance = true
 # Dim inactive splits so focus lands on the active pane.
 unfocused-split-opacity = 0.85
 # Keyboard / macOS
-# Without this, macOS emits Unicode glyphs (Ω ≈ …) on Option instead of Alt — which
-# silently breaks every Alt binding downstream: zsh Alt+Z (zoxide jump), tmux Alt+H/L
-# (windows) and Alt+arrows (panes). `true` = both Options act as Alt; use `left` to
-# keep right-Option free for typing accented characters.
-macos-option-as-alt = true
+# macOS emite glifos Unicode (Ω ≈ …) sobre Option en vez de Alt — lo que rompe todo binding
+# Alt posterior: zsh Alt+Z (zoxide jump), tmux Alt+H/L (windows) y Alt+arrows (panes).
+# `left` = SOLO el Option izquierdo actúa como Alt; el DERECHO conserva el comportamiento
+# de teclado español y compone los símbolos que necesitan Option: {} [] @ € ~ etc.
+# (con `true`, que convertía los DOS, esos símbolos dejaban de poder escribirse).
+macos-option-as-alt = left
 # Shell integration: defaults already enable cursor/title/path; this adds `sudo` so
 # password prompts behave correctly. (cursor/title/path stay on — the flag merges.)
 shell-integration-features = sudo
@@ -59,3 +81,13 @@ keybind = shift+enter=text:\x1b[13;2u
 
 # Discoverability: command palette (fuzzy-search every action + its keybind)
 keybind = cmd+shift+p=toggle_command_palette
+
+# ⌘C llega a nvim como <M-c> (copiar selección/línea al portapapeles del sistema).
+# La copia de texto del terminal queda en ⌘⇧C.
+keybind = cmd+shift+c=copy_to_clipboard:plain
+keybind = cmd+c=esc:c
+
+# ⌘C llega a nvim como <M-c> (copiar selección/línea al portapapeles del sistema).
+# La copia de texto del terminal queda en ⌘⇧C.
+keybind = cmd+shift+c=copy_to_clipboard:plain
+keybind = cmd+c=esc:c
